@@ -6,4 +6,4 @@ quasimatt.com contains posts, represented in index.html by paragraphs. each para
 goals:
 the current development goal is to create analytics about social dynamics as they're revealed on the site and make those analytics public. the main goal is to create a social graph.
 
-p.s. i love you ʕ•́ᴥ•̀ʔっ♡
+♡
