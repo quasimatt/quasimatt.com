@@ -4,6 +4,15 @@
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="https://pbs.twimg.com/profile_images/1614420813800767490/mf6sQbCT_400x400.jpg" type="image/png">
     <link rel="manifest" href="/manifest.json">
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+          appId: "c3fc3943-00b8-4720-bfa3-a3101275787f",
+        });
+      });
+    </script>
 </head>
 <body>
     <p id="quasimatt"><a href="https://twitter.com/quasimatt">quasimatt</a></p>
