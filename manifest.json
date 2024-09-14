@@ -4,7 +4,7 @@
   "start_url": "https://quasimatt.com",
   "display": "standalone",
   "background_color": "#000000",
-  "theme_color": "#ffffff",
+  "theme_color": "#000000",
   "icons": [
     {
       "src": "https://pbs.twimg.com/profile_images/1614420813800767490/mf6sQbCT_400x400.jpg",
