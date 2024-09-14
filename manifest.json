@@ -1,0 +1,20 @@
+{
+  "name": "quasimatt app",
+  "short_name": "quasimatt",
+  "start_url": "https://quasimatt.com",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/images/icon-192x192.png", //needs to be updated
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/images/icon-512x512.png", //needs to be updated
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
