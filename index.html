@@ -112,35 +112,49 @@
     <p id="end" data-type="other"><a href="https://quasimatt.com">quasimatt.com</a> is created and maintained by <a href="https://twitter.com/quasimatt">quasimatt</a>, with assistance from <a href="https://twitter.com/negroprogrammer">regy</a> as the chief data officer, <a href="https://twitter.com/__mihir">mihir</a> as the director of open source operations, <a href="https://twitter.com/conejocapital">bunny</a> as the vp of business development and onchain experimentation, <a href="https://twitter.com/wesamo__">wesam</a> as the software development intern, <a href="https://twitter.com/kitvolta">kit</a> as the head of developer relations, and <a href="https://twitter.com/nonpoccafe">michael</a> as the vp of clout strategy.</p>
 
 <script>
-      // Check if the app is running in PWA mode
-      function isPWA() {
-        return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-      }
+        // Check if the app is running in PWA mode
+        function isPWA() {
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+            console.log("Is PWA: ", isStandalone);  // Log whether it's in PWA mode
+            return isStandalone;
+        }
 
-      // Register the service worker for caching and other PWA features
-      if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.register('/service-worker.js')
-          .then(function(registration) {
-              console.log('Service Worker registered with scope:', registration.scope);
-          }).catch(function(error) {
-              console.log('Service Worker registration failed:', error);
-          });
-      }
+        // Register the service worker for caching and other PWA features
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js')
+            .then(function(registration) {
+                console.log('Service Worker registered with scope:', registration.scope);
+            }).catch(function(error) {
+                console.error('Service Worker registration failed:', error);
+            });
+        }
 
-      // Initialize OneSignal only if in PWA mode
-      if (isPWA()) {
-          window.OneSignalDeferred = window.OneSignalDeferred || [];
-          OneSignalDeferred.push(async function(OneSignal) {
-              await OneSignal.init({
-                  appId: "c3fc3943-00b8-4720-bfa3-a3101275787f",
-              });
-
-              // Optionally show the prompt to subscribe to notifications
-              OneSignal.showNativePrompt();
-          });
-      } else {
-          console.log("Not in PWA mode. Skipping notification prompt.");
-      }
+        // Initialize OneSignal only if in PWA mode
+        if (isPWA()) {
+            window.OneSignalDeferred = window.OneSignalDeferred || [];
+            OneSignalDeferred.push(async function(OneSignal) {
+                try {
+                    await OneSignal.init({
+                        appId: "c3fc3943-00b8-4720-bfa3-a3101275787f",  // Your OneSignal App ID
+                    });
+                    console.log("OneSignal initialized successfully.");
+                    
+                    // Optionally show the prompt to subscribe to notifications
+                    OneSignal.isPushNotificationsEnabled(function(isEnabled) {
+                        if (isEnabled) {
+                            console.log("Push notifications are already enabled.");
+                        } else {
+                            console.log("Prompting user for push notification permission.");
+                            OneSignal.showNativePrompt();
+                        }
+                    });
+                } catch (error) {
+                    console.error("OneSignal initialization failed:", error);
+                }
+            });
+        } else {
+            console.log("Not in PWA mode. Skipping notification prompt.");
+        }
     </script>
 
 </body>
