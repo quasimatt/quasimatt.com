@@ -123,7 +123,7 @@
             // Show the notification prompt only after OneSignal is fully initialized
             OneSignal.on('subscriptionChange', function(isSubscribed) {
                 if (!isSubscribed) {
-                    OneSignal.showNativePrompt();
+                    OneSignal.Notifications.requestPermission();
                 }
             });
         } catch (error) {
