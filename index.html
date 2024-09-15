@@ -114,24 +114,16 @@
    <script>
     window.OneSignal = window.OneSignal || [];
     OneSignal.push(function() {
-        try {
             window.OneSignalDeferred = window.OneSignalDeferred || [];
             OneSignalDeferred.push(async function(OneSignal) {
                 await OneSignal.init({
                   appId: "c3fc3943-00b8-4720-bfa3-a3101275787f",
                 });
               });
-            });
-
-            // Show the notification prompt only after OneSignal is fully initialized
-            OneSignal.on('subscriptionChange', function(isSubscribed) {
-                if (!isSubscribed) {
                     OneSignal.Notifications.requestPermission();
                 }
             });
-        } catch (error) {
-            console.error("Error during OneSignal initialization: ", error);
-        }
+        } 
     });
 </script>
 </body>
