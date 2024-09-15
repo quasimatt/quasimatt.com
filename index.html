@@ -112,19 +112,13 @@
     <p id="end" data-type="other"><a href="https://quasimatt.com">quasimatt.com</a> is created and maintained by <a href="https://twitter.com/quasimatt">quasimatt</a>, with assistance from <a href="https://twitter.com/negroprogrammer">regy</a> as the chief data officer, <a href="https://twitter.com/__mihir">mihir</a> as the director of open source operations, <a href="https://twitter.com/conejocapital">bunny</a> as the vp of business development and onchain experimentation, <a href="https://twitter.com/wesamo__">wesam</a> as the software development intern, <a href="https://twitter.com/kitvolta">kit</a> as the head of developer relations, and <a href="https://twitter.com/nonpoccafe">michael</a> as the vp of clout strategy.</p>
     
    <script>
-    window.OneSignal = window.OneSignal || [];
-    OneSignal.push(function() {
-            window.OneSignalDeferred = window.OneSignalDeferred || [];
-            OneSignalDeferred.push(async function(OneSignal) {
-                await OneSignal.init({
-                  appId: "c3fc3943-00b8-4720-bfa3-a3101275787f",
-                });
-              });
-                    OneSignal.Notifications.requestPermission();
-                }
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+        OneSignalDeferred.push(async function(OneSignal) {
+            await OneSignal.init({
+              appId: "c3fc3943-00b8-4720-bfa3-a3101275787f",
             });
-        } 
-    });
-</script>
+        });
+    OneSignal.Notifications.requestPermission();
+    </script>
 </body>
 </html>
