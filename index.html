@@ -6,7 +6,35 @@
     <link rel="manifest" href="/manifest.json">
 </head>
   <body>
-    <p>quasimatt</p>
+    <p>
+  <span>quasimatt</span><span id="identity"></span>
+</p>
+
+<script>
+  const endings = [
+    " is an artist.",
+    " is a grifter.",
+    " is a genius.",
+    " is lowkey interesting.",
+    " is a liar.",
+    " has a website.",
+    " is an intellectual.",
+    " fell off.",
+    " is so back.",
+    " posts.",
+    " changed literature forever.",
+    " is a blogger.",
+    " is a critic.",
+    " is niche.",
+    " has mass appeal.",
+    " is honest.",
+    " is almost.",
+    " is everything."
+  ];
+
+  const pick = endings[Math.floor(Math.random() * endings.length)];
+  document.getElementById("identity").textContent = pick;
+</script>
     <p><a href="social" target="_self">social</a> <a href="blog" target="_self">blog</a></p>
   </body>
 </html>
