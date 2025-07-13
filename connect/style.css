@@ -4,12 +4,15 @@ body {
   font-family: 'Helvetica Neue', sans-serif;
   text-transform: lowercase;
   font-size: 5vw;
-  text-align: justify;
+  text-align: left;
 }
 
 a {
-  display: inline-block;
-  float: right;
   color: white;
   text-decoration: underline;
+}
+
+.right {
+  float: right;
+  text-align: right;
 }
