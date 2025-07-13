@@ -1,0 +1,13 @@
+body {
+  background-color: black;
+  color: white;
+  font-family: 'Helvetica Neue', sans-serif;
+  text-transform: lowercase;
+  font-size: 5vw;
+  text-align: justify;
+}
+
+a {
+  color: white;
+  text-decoration: underline;
+}
