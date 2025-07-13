@@ -8,6 +8,7 @@ body {
 }
 
 a {
+  display: inline-block;
   float: right;
   color: white;
   text-decoration: underline;
