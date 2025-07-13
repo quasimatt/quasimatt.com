@@ -16,3 +16,9 @@ a {
   float: right;
   text-align: right;
 }
+
+p::after {
+  content: "";
+  display: block;
+  clear: both;
+}
