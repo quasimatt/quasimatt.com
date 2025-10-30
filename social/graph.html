@@ -46,7 +46,7 @@
 
 <script>
 (function () {
-  // ==== DOM & Status ====
+  // ===== DOM =====
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
   const tooltip = document.getElementById('tooltip');
@@ -58,7 +58,7 @@
   function setStatus(s){ statusEl.textContent = s; }
   window.addEventListener('error', e => { errEl.textContent = String(e.error || e.message || e); });
 
-  // Paint black immediately
+  // ===== Canvas (retina-safe) =====
   function fitCanvas() {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     const { clientWidth:w, clientHeight:h } = canvas.parentElement;
@@ -68,18 +68,17 @@
     canvas.style.height = h + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
-  function paintBlack() {
-  ctx.save();
-  ctx.setTransform(1,0,0,1,0,0);           // identity
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.restore();
+  function clearBlack() {
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
   }
-
   window.addEventListener('resize', () => { fitCanvas(); render(); });
 
-  // ==== Config & Helpers ====
+  // ===== Config & helpers =====
   const SOCIAL_URL = '/social';
   const CUTOFF_ISO = '2025-09-22';
   const TW_HOSTS = new Set(['twitter.com','x.com','mobile.twitter.com']);
@@ -104,7 +103,7 @@
     } catch { return null; }
   }
 
-  // ==== Data ====
+  // ===== Data =====
   let rawPosts = [];
   let graph = { nodes:[], links:[] };
 
@@ -160,7 +159,7 @@
     };
   }
 
-  // ==== Vanilla force simulation + zoom/pan ====
+  // ===== Layout + interactions (vanilla) =====
   // Zoom/pan
   let zoom = 1, offsetX = 0, offsetY = 0;
   function screenToWorld(x,y){ return { x:(x - offsetX)/zoom, y:(y - offsetY)/zoom }; }
@@ -187,12 +186,12 @@
     render();
   });
 
-  // Force params + state
+  // Force sim state
   let nodes=[], links=[];
   let animId = null;
 
   function layoutGraph() {
-    // Init node positions on jittered grid
+    // Initial jittered grid
     const W = canvas.parentElement.clientWidth, H = canvas.parentElement.clientHeight;
     nodes.forEach((n,i)=>{
       const cols = Math.ceil(Math.sqrt(nodes.length));
@@ -203,7 +202,7 @@
       n.vx = 0; n.vy = 0;
     });
 
-    // Spring target length from weight (stronger -> shorter)
+    // Link lengths from weights
     const vals = links.map(l=>l.value||0);
     let vmin=0, vmax=1; if (vals.length){ vmin=Math.min(...vals); vmax=Math.max(...vals); if (vmax===vmin) vmax=vmin+1; }
     links.forEach(l=>{
@@ -214,14 +213,14 @@
       l.b = nodes.find(n=>n.id===l.target);
     });
 
-    // Run simulation
+    // Simulation loop
     let steps = 0;
     function step() {
       steps++;
-      const kSpring = 0.01;         // spring constant
-      const kRepel = 2500;          // repulsion strength
-      const centerK = 0.0005;       // gentle centering
-      const friction = 0.85;        // velocity damping
+      const kSpring = 0.01;
+      const kRepel = 2500;
+      const centerK = 0.0005;
+      const friction = 0.85;
 
       // Repulsion
       for (let i=0;i<nodes.length;i++){
@@ -271,73 +270,63 @@
     animId = requestAnimationFrame(step);
   }
 
-  // ==== Render ====
+  // ===== Render =====
   function nodeRadius(n){ return 4 + Math.min(14, (n.mentions||0) * 1.2); }
   const labels = new Map();
+
   function render() {
-  // 1) Clear the entire backing store (retina-safe)
-  ctx.save();
-  ctx.setTransform(1,0,0,1,0,0);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.restore();
+    // Clear whole backing store (retina-safe) and paint black
+    clearBlack();
 
-  // 2) World → screen
-  ctx.save();
-  ctx.translate(offsetX, offsetY);
-  ctx.scale(zoom, zoom);
+    // World->screen transform
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(zoom, zoom);
 
-  // 3) Draw edges (thin, constant)
-  ctx.globalAlpha = 0.9;
-  ctx.strokeStyle = '#ffffff';
-  for (const l of links) {
-    const a = l.a, b = l.b;
-    if (!a || !b) continue;
-    ctx.beginPath();
-    ctx.lineWidth = 0.4;
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-  }
-
-  // 4) Draw nodes (hollow)
-  for (const n of nodes) {
-    ctx.beginPath();
+    // Edges (thin, constant)
+    ctx.globalAlpha = 0.9;
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.2 / Math.max(1, zoom * 0.9);
-    ctx.arc(n.x, n.y, nodeRadius(n), 0, Math.PI * 2);
-    ctx.stroke();
-  }
-
-  ctx.restore();
-
-  // 5) Labels in screen space
-  for (const n of nodes) {
-    let el = labels.get(n.id);
-    if (!el) {
-      el = document.createElement('a');
-      el.href = `https://twitter.com/${n.handle}`;
-      el.target = '_blank'; el.rel = 'noopener';
-      el.style.position = 'absolute';
-      el.style.color = '#fff';
-      el.style.textDecoration = 'none';
-      el.style.fontSize = '12px';
-      el.style.padding = '2px 3px';
-      el.style.borderRadius = '6px';
-      el.textContent = '@' + n.handle;
-      canvas.parentElement.appendChild(el);
-      labels.set(n.id, el);
+    for (const l of links){
+      const a=l.a, b=l.b; if (!a||!b) continue;
+      ctx.beginPath(); ctx.lineWidth = 0.4;
+      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     }
-    const r = nodeRadius(n);
-    const sx = offsetX + n.x * zoom;
-    const sy = offsetY + n.y * zoom;
-    const rect = el.getBoundingClientRect();
-    el.style.left = (sx - rect.width / 2) + 'px';
-    el.style.top  = (sy - r * zoom - rect.height - 4) + 'px';
-  }
-}
 
+    // Nodes (hollow)
+    for (const n of nodes){
+      ctx.beginPath();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.2 / Math.max(1, zoom*0.9);
+      ctx.arc(n.x, n.y, nodeRadius(n), 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+
+    // Labels in screen space
+    for (const n of nodes){
+      let el = labels.get(n.id);
+      if (!el) {
+        el = document.createElement('a');
+        el.href = `https://twitter.com/${n.handle}`;
+        el.target = '_blank'; el.rel = 'noopener';
+        el.style.position = 'absolute';
+        el.style.color = '#fff';
+        el.style.textDecoration = 'none';
+        el.style.fontSize = '12px';
+        el.style.padding = '2px 3px';
+        el.style.borderRadius = '6px';
+        el.textContent = '@' + n.handle;
+        canvas.parentElement.appendChild(el);
+        labels.set(n.id, el);
+      }
+      const r = nodeRadius(n);
+      const sx = offsetX + n.x*zoom;
+      const sy = offsetY + n.y*zoom;
+      const rect = el.getBoundingClientRect();
+      el.style.left = (sx - rect.width/2) + 'px';
+      el.style.top  = (sy - r*zoom - rect.height - 4) + 'px';
+    }
   }
   function clearLabels(){ labels.forEach(el=>el.remove()); labels.clear(); }
 
@@ -362,27 +351,26 @@
     }
   });
 
-  // ==== Recompute ====
+  // ===== Recompute =====
   function recomputeAndRender() {
     const minMentions = parseInt(minCountInput.value, 10) || 1;
     graph = buildGraph(minMentions);
     nodes = graph.nodes;
-    links = graph.links.map(l => ({...l})); // copy for refs
-    // attach refs after nodes set
+    links = graph.links.map(l => ({...l}));
     links.forEach(l => { l.a = nodes.find(n=>n.id===l.source); l.b = nodes.find(n=>n.id===l.target); });
     clearLabels();
     fitCanvas();
-    paintBlack();
+    clearBlack();
     if (!nodes.length) { setStatus('no eligible nodes with current filter'); render(); return; }
     setStatus(`nodes: ${nodes.length} | links: ${links.length}`);
     layoutGraph();
   }
 
-  // ==== Init ====
+  // ===== Init =====
   (async function init(){
     try {
       setStatus('boot…');
-      fitCanvas(); paintBlack();
+      fitCanvas(); clearBlack();
       minCountLabel.textContent = minCountInput.value;
       await loadSocial();
       recomputeAndRender();
@@ -401,3 +389,4 @@
 </script>
 </body>
 </html>
+
