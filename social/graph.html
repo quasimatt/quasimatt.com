@@ -1,94 +1,23 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Quasi Social Graph (since 2025‑09‑22)</title>
-  <style>
-    :root {
-      --bg: #000;
-      --fg: #fff;
-      --muted: #aaa;
-      --accent: #fff;
-    }
-    html, body {
-      margin: 0; height: 100%; background: var(--bg); color: var(--fg);
-      font-family: "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif;
-    }
-    a { color: var(--fg); text-decoration: underline; }
-    .wrap { display: grid; grid-template-rows: auto 1fr; height: 100%; }
-    header {
-      padding: 12px 16px; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-    }
-    header h1 { font-size: 16px; margin: 0; letter-spacing: 0.2px; font-weight: 600; }
-    header .controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--muted); }
-    label { font-size: 12px; }
-    input[type="range"] { width: 180px; }
-    .hint { font-size: 12px; color: var(--muted); }
-    #graph { position: relative; width: 100%; height: calc(100vh - 60px); }
-    canvas { display: block; width: 100%; height: 100%; background: var(--bg); }
-    .tooltip {
-      position: fixed; pointer-events: none; background: #000; color: #fff;
-      padding: 6px 8px; border: 1px solid #333; border-radius: 8px; font-size: 12px; white-space: nowrap; transform: translate(-50%, -140%);
-    }
-    .legend { position: absolute; left: 12px; bottom: 12px; font-size: 12px; color: var(--muted); }
-    .error { color: #f66; font-size: 12px; margin-left: 8px; }
-  </style>
-  <!-- D3 for simulation only -->
-  <script src="https://unpkg.com/d3@7/dist/d3.min.js"></script>
-</head>
-<body>
-  <div class="wrap">
-    <header>
-      <h1>Quasi Social Graph</h1>
-      <div class="controls">
-        <label>
-          Min mentions: <span id="minCountLabel">1</span>
-          <input id="minCount" type="range" min="1" max="10" value="1" step="1" />
-        </label>
-        <label>
-          Since: <strong>2025‑09‑22</strong>
-        </label>
-        <label>
-          Decay: <code>1 − 0.01 × days_ago</code>
-        </label>
-        <span class="hint">(Edges shorten & thicken with higher scores. Click a label to open their Twitter.)</span>
-        <span id="status" class="hint"></span>
-        <span id="error" class="error"></span>
-      </div>
-    </header>
-    <div id="graph">
-      <canvas id="c"></canvas>
-      <div id="tooltip" class="tooltip" style="display:none"></div>
-      <div class="legend">White nodes/edges on black; font: Helvetica Neue.</div>
-    </div>
-  </div>
-
 <script>
-(function() {
+(function () {
   // --- Configuration ---
-  const SOCIAL_URL = '/social'; // same-origin fetch
+  const SOCIAL_URL = '/social';
   const CUTOFF_ISO = '2025-09-22';
   const TW_HOSTS = new Set(['twitter.com','x.com','mobile.twitter.com']);
-  const tz = 'America/New_York'; // project timezone
 
-  // Canvas + label overlay (DOM labels for clickability)
+  // Canvas & DOM
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
   const tooltip = document.getElementById('tooltip');
   const statusEl = document.getElementById('status');
   const errEl = document.getElementById('error');
 
-  // Zoom/pan state
+  // Zoom/pan
   let zoomTransform = d3.zoomIdentity;
-  function project(x, y) {
-    return [zoomTransform.applyX(x), zoomTransform.applyY(y)];
-  }
-  function unproject(x, y) {
-    return [zoomTransform.invertX(x), zoomTransform.invertY(y)];
-  }
+  function project(x, y) { return [zoomTransform.applyX(x), zoomTransform.applyY(y)]; }
+  function unproject(x, y) { return [zoomTransform.invertX(x), zoomTransform.invertY(y)]; }
 
-  // Resize canvas to device pixels
+  // Resize
   function fitCanvas() {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     const { clientWidth:w, clientHeight:h } = canvas.parentElement;
@@ -100,7 +29,7 @@
   }
   window.addEventListener('resize', () => { fitCanvas(); render(); });
 
-  // UI controls
+  // UI
   const minCountInput = document.getElementById('minCount');
   const minCountLabel = document.getElementById('minCountLabel');
   minCountInput.addEventListener('input', () => {
@@ -109,75 +38,58 @@
   });
 
   // --- Parsing helpers ---
-  const monthNames = ['january','february','march','april','may','june','july','august','september','october','november','december'];
   function parseDateFromText(t) {
     if (!t) return null;
     const s = t.trim();
-    // ISO like 2025-10-29
     let m = s.match(/(20\d{2})[-\/\. ](\d{1,2})[-\/\. ](\d{1,2})/);
     if (m) {
       const d = new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
       return isNaN(d) ? null : d;
     }
-    // e.g., Oct 29, 2025 or October 29, 2025
-    const mn = monthNames.join('|');
-    m = s.toLowerCase().match(new RegExp(`\b(${mn}|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\.?(?:ember|uary|ch|il|e|y|ust|tember|ober|ember|c)?\s+\d{1,2},?\s+20\\d{2}`));
+    const mn = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)';
+    m = s.toLowerCase().match(new RegExp(`${mn}\\.?(?:ember|uary|ch|il|e|y|ust|tember|ober|ember|c)?\\s+\\d{1,2},?\\s+20\\d{2}`));
     if (m) {
       const d = new Date(m[0]);
       return isNaN(d) ? null : d;
     }
     return null;
   }
-
+  function parseDateFromDataDate(val) {
+    if (!val) return null;
+    const s = String(val).trim();
+    if (/^\d{6}$/.test(s)) {
+      const mm = +s.slice(0,2), dd = +s.slice(2,4), yy = +s.slice(4,6);
+      const d = new Date(2000 + yy, mm-1, dd);
+      return isNaN(d) ? null : d;
+    }
+    if (/^\d{8}$/.test(s)) {
+      const mm = +s.slice(0,2), dd = +s.slice(2,4), yyyy = +s.slice(4,8);
+      const d = new Date(yyyy, mm-1, dd);
+      return isNaN(d) ? null : d;
+    }
+    return null;
+  }
   function getCutoffDate() {
-    // Interpret cutoff in project TZ but JS Date lacks TZ; treat as local date
     const [y,m,d] = CUTOFF_ISO.split('-').map(Number);
     return new Date(y, m-1, d);
   }
-
   function daysAgo(date) {
-    const now = new Date();
-    const ms = now - date;
+    const ms = Date.now() - date.getTime();
     return Math.max(0, Math.floor(ms / 86400000));
   }
-
   function extractHandleFromHref(href) {
     try {
       const u = new URL(href, location.origin);
       if (TW_HOSTS.has(u.hostname)) {
-        // strip leading @ if present in path
         const seg = u.pathname.split('/').filter(Boolean)[0] || '';
         return seg.replace(/^@/, '').trim();
       }
-      // Non-Twitter links: fall back to text as handle-like
       return null;
     } catch { return null; }
   }
 
-  // helper: parse MMDDYY or MMDDYYYY from data-date
-function parseDateFromDataDate(val) {
-  if (!val) return null;
-  const s = String(val).trim();
-  if (/^\d{6}$/.test(s)) {
-    const mm = Number(s.slice(0,2));
-    const dd = Number(s.slice(2,4));
-    const yy = Number(s.slice(4,6));
-    const yyyy = 2000 + yy;
-    const d = new Date(yyyy, mm-1, dd);
-    return isNaN(d) ? null : d;
-  }
-  if (/^\d{8}$/.test(s)) {
-    const mm = Number(s.slice(0,2));
-    const dd = Number(s.slice(2,4));
-    const yyyy = Number(s.slice(4,8));
-    const d = new Date(yyyy, mm-1, dd);
-    return isNaN(d) ? null : d;
-  }
-  return null;
-}
-
-// --- Fetch & parse the social page ---
-  let rawPosts = []; // [{date: Date, handles: Set<string> }]
+  // --- Fetch & parse /social ---
+  let rawPosts = []; // [{date, handles:Set<string>}]
 
   async function loadSocial() {
     statusEl.textContent = 'Loading /social…';
@@ -187,112 +99,93 @@ function parseDateFromDataDate(val) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
     const cutoff = getCutoffDate();
-
-    // Your structure: <p data-type="social" data-date="MMDDYY|MMDDYYYY"> ... </p>
-    // We prioritize those exact nodes. Fallback to older heuristics if none found.
     let nodes = Array.from(doc.querySelectorAll('[data-type="social"]'));
-    if (!nodes.length) {
-      nodes = Array.from(doc.querySelectorAll('p, article, .post, .entry'));
-    }
+    if (!nodes.length) nodes = Array.from(doc.querySelectorAll('p, article, .post, .entry'));
 
-    statusEl.textContent = `Found ${nodes.length} social nodes`;
     const posts = [];
     nodes.forEach(el => {
-      // 1) Date via data-date (MMDDYY or MMDDYYYY)
       let date = null;
       const dd = el.getAttribute('data-date') || el.dataset?.date;
       if (dd) date = parseDateFromDataDate(dd);
-
-      // 2) Otherwise time[datetime]
       if (!date) {
-        const timeEl = el.querySelector('time[datetime]') || el.closest('article')?.querySelector('time[datetime]');
-        if (timeEl) {
-          const d = new Date(timeEl.getAttribute('datetime'));
+        const t = el.querySelector('time[datetime]') || el.closest('article')?.querySelector('time[datetime]');
+        if (t) {
+          const d = new Date(t.getAttribute('datetime'));
           if (!isNaN(d)) date = d;
         }
       }
-      // 3) Otherwise parse from text
       if (!date) date = parseDateFromText(el.textContent || '');
-      if (!date) return;
-      if (date < cutoff) return;
+      if (!date || date < cutoff) return;
 
-      // Extract Twitter/X handles from <a href>
       const handles = new Set();
       el.querySelectorAll('a[href]').forEach(a => {
         const h = extractHandleFromHref(a.getAttribute('href'));
         if (h) handles.add(h.toLowerCase());
       });
-      // Ensure @quasimatt is present in every post
-      handles.add('quasimatt');
+      handles.add('quasimatt'); // always include @quasimatt
       if (handles.size >= 1) posts.push({ date, handles });
     });
 
     posts.sort((a,b) => a.date - b.date);
     rawPosts = posts;
-    statusEl.textContent = `Parsed ${posts.length} posts since 2025‑09‑22.`;
+    statusEl.textContent = `Parsed ${posts.length} posts since 2025-09-22.`;
   }
 
-  // --- Build graph data from posts ---
-  function buildGraph(minMentions=2) {
-    // 1) Count mentions per handle
+  // --- Build graph ---
+  function buildGraph(minMentions=1) {
     const mentionCounts = new Map();
-    rawPosts.forEach(p => {
-      p.handles.forEach(h => mentionCounts.set(h, (mentionCounts.get(h)||0)+1));
-    });
-
-    // Determine eligible handles
+    rawPosts.forEach(p => p.handles.forEach(h => mentionCounts.set(h, (mentionCounts.get(h)||0)+1)));
     const eligible = new Set([...mentionCounts.entries()].filter(([,c]) => c >= minMentions).map(([h]) => h));
 
-    // 2) Build weighted co-appearance edges with recency decay
-    const linkKey = (a,b) => a < b ? a+'|'+b : b+'|'+a;
+    const linkKey = (a,b) => a < b ? `${a}|${b}` : `${b}|${a}`;
     const linksMap = new Map();
 
     rawPosts.forEach(p => {
-      // Filter to eligible handles within this post
       const hs = [...p.handles].filter(h => eligible.has(h));
       if (hs.length < 2) return;
       const w = Math.max(0, 1 - 0.01 * daysAgo(p.date));
-      for (let i=0;i<hs.length;i++) {
-        for (let j=i+1;j<hs.length;j++) {
-          const a = hs[i], b = hs[j];
-          const key = linkKey(a,b);
-          const prev = linksMap.get(key) || { source:a, target:b, value:0, count:0 };
-          prev.value += w;
-          prev.count += 1;
-          linksMap.set(key, prev);
-        }
+      for (let i=0;i<hs.length;i++) for (let j=i+1;j<hs.length;j++) {
+        const a = hs[i], b = hs[j];
+        const key = linkKey(a,b);
+        const prev = linksMap.get(key) || { source:a, target:b, value:0, count:0 };
+        prev.value += w; prev.count += 1;
+        linksMap.set(key, prev);
       }
     });
 
-    const nodes = [...eligible].map(h => ({ id: h, handle: h, mentions: (mentionCounts.get(h)||0) }));
+    const nodes = [...eligible].map(h => ({ id:h, handle:h, mentions: mentionCounts.get(h)||0 }));
     const links = [...linksMap.values()];
-
     return { nodes, links, mentionCounts };
   }
 
-  // --- Render (D3 force + Canvas drawing + DOM labels) ---
+  // --- Layout + Render ---
   let sim = null;
-  // Stats for link value scaling → distances/strengths
-  let VMIN = 0, VMAX = 1;
-  function updateLinkStats() {
-    const vals = graph.links.map(l => l.value || 0);
-    if (vals.length) {
-      VMIN = Math.min(...vals);
-      VMAX = Math.max(...vals);
-      if (!isFinite(VMIN)) VMIN = 0;
-      if (!isFinite(VMAX) || VMAX === VMIN) VMAX = VMIN + 1; // avoid 0 span
-    } else {
-      VMIN = 0; VMAX = 1;
-    }
-  }
   let graph = { nodes:[], links:[] };
   const labels = new Map();
 
-  function clearLabels() {
-    labels.forEach(el => el.remove());
-    labels.clear();
+  // edge length mapping (normalize by min/max)
+  let VMIN = 0, VMAX = 1;
+  function updateLinkStats() {
+    const vals = graph.links.map(l => l.value || 0);
+    if (!vals.length) { VMIN=0; VMAX=1; return; }
+    VMIN = Math.min(...vals);
+    VMAX = Math.max(...vals);
+    if (VMAX === VMIN) VMAX = VMIN + 1;
   }
 
+  function nodeRadius(n) { return 4 + Math.min(14, n.mentions * 1.2); }
+  function linkWidth(_) { return 0.4; }
+  function linkDistance(l) {
+    const w = canvas.parentElement.clientWidth;
+    const h = canvas.parentElement.clientHeight;
+    const dMin = 26;
+    const dMax = Math.max(140, 0.55 * Math.min(w, h));
+    const v = (l.value || 0);
+    const t = (v - VMIN) / (VMAX - VMIN);
+    return dMax - t * (dMax - dMin);
+  }
+
+  function clearLabels() { labels.forEach(el => el.remove()); labels.clear(); }
   function placeLabel(node) {
     let el = labels.get(node.id);
     if (!el) {
@@ -316,64 +209,18 @@ function parseDateFromDataDate(val) {
     const cy = sy - (r * zoomTransform.k) - rect.height - 4;
     el.style.left = cx + 'px';
     el.style.top = cy + 'px';
-  };
-      el.target = '_blank'; el.rel = 'noopener';
-      el.style.position = 'absolute';
-      el.style.color = '#fff';
-      el.style.textDecoration = 'none';
-      el.style.fontSize = '12px';
-      el.style.padding = '2px 3px';
-      el.style.borderRadius = '6px';
-      el.textContent = '@' + node.handle;
-      canvas.parentElement.appendChild(el);
-      labels.set(node.id, el);
-    }
-    // Center label over node
-    const x = node.x || 0, y = node.y || 0;
-    const r = nodeRadius(node);
-    const rect = el.getBoundingClientRect();
-    const cx = x - rect.width/2;
-    const cy = y - r - rect.height - 4;
-    el.style.left = cx + 'px';
-    el.style.top = cy + 'px';
-  }
-
-  function nodeRadius(n) {
-    // radius is small function of mentions
-    return 4 + Math.min(14, n.mentions * 1.2);
-  }
-
-  function linkWidth(l) {
-    // Make edges very thin; encode strength via distance only
-    return 0.4;
-  }
-
-  function linkDistance(l) {
-    // Map higher score → shorter distance; normalize per current graph
-    const w = canvas.parentElement.clientWidth;
-    const h = canvas.parentElement.clientHeight;
-    const dMin = 26; // tightest springs for strongest ties
-    const dMax = Math.max(140, 0.55 * Math.min(w, h)); // weakest ties stretch out
-    const v = (l.value || 0);
-    const t = (v - VMIN) / (VMAX - VMIN); // 0..1
-    return dMax - t * (dMax - dMin);
   }
 
   function render() {
-    if (!graph || !graph.nodes.length) {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      clearLabels();
-      return;
-    }
     const { clientWidth: w, clientHeight: h } = canvas;
     ctx.clearRect(0, 0, w, h);
+    if (!graph.nodes.length) { clearLabels(); return; }
 
     ctx.save();
-    // Apply current zoom/pan
     ctx.translate(zoomTransform.x, zoomTransform.y);
     ctx.scale(zoomTransform.k, zoomTransform.k);
 
-    // Draw links (under nodes)
+    // edges
     ctx.globalAlpha = 0.9;
     graph.links.forEach(l => {
       ctx.beginPath();
@@ -384,54 +231,28 @@ function parseDateFromDataDate(val) {
       ctx.stroke();
     });
 
-    // Draw nodes as hollow circles
+    // nodes (hollow)
     graph.nodes.forEach(n => {
       ctx.beginPath();
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.2 / Math.max(1, zoomTransform.k * 0.9); // keep outline readable when zoomed in
+      ctx.lineWidth = 1.2 / Math.max(1, zoomTransform.k * 0.9);
       ctx.arc(n.x, n.y, nodeRadius(n), 0, Math.PI * 2);
       ctx.stroke();
     });
 
     ctx.restore();
 
-    // Place labels in screen space
+    // labels
     graph.nodes.forEach(n => placeLabel(n));
-  }
-    const { clientWidth: w, clientHeight: h } = canvas;
-    ctx.clearRect(0, 0, w, h);
-    ctx.save();
-
-    // Draw links
-    ctx.globalAlpha = 0.9;
-    graph.links.forEach(l => {
-      ctx.beginPath();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = linkWidth(l); // constant width; distance encodes strength
-      ctx.moveTo(l.source.x, l.source.y);
-      ctx.lineTo(l.target.x, l.target.y);
-      ctx.stroke();
-    });
-
-    // Draw nodes
-    graph.nodes.forEach(n => {
-      ctx.beginPath();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.2;
-      ctx.arc(n.x, n.y, nodeRadius(n), 0, Math.PI * 2);
-      ctx.stroke();
-      placeLabel(n);
-    });
-
-    ctx.restore();
   }
 
   function startSim() {
     if (sim) sim.stop();
 
-    // Seed initial positions on a jittered grid for better spread
     const w = canvas.parentElement.clientWidth;
     const h = canvas.parentElement.clientHeight;
+
+    // seed on a jittered grid
     graph.nodes.forEach((n, i) => {
       if (typeof n.x !== 'number' || typeof n.y !== 'number') {
         const cols = Math.ceil(Math.sqrt(graph.nodes.length));
@@ -442,7 +263,6 @@ function parseDateFromDataDate(val) {
       }
     });
 
-    // Update link stats before building forces
     updateLinkStats();
 
     sim = d3.forceSimulation(graph.nodes)
@@ -458,7 +278,7 @@ function parseDateFromDataDate(val) {
       .on('tick', render);
   }
 
-  // Tooltip for hover
+  // hover
   function hitTestNode(mx, my) {
     for (let i = graph.nodes.length - 1; i >= 0; i--) {
       const n = graph.nodes[i];
@@ -468,13 +288,9 @@ function parseDateFromDataDate(val) {
     }
     return null;
   }
-    return null;
-  }
-
   canvas.addEventListener('mousemove', (e) => {
     const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
-    const [ux, uy] = unproject(mx, my);
+    const [ux, uy] = unproject(e.clientX - rect.left, e.clientY - rect.top);
     const node = hitTestNode(ux, uy);
     if (node) {
       tooltip.style.display = 'block';
@@ -485,35 +301,21 @@ function parseDateFromDataDate(val) {
       tooltip.style.display = 'none';
     }
   });
-    const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
-    const node = hitTestNode(mx, my);
-    if (node) {
-      tooltip.style.display = 'block';
-      tooltip.textContent = `@${node.handle} — mentions: ${node.mentions}`;
-      tooltip.style.left = e.clientX + 'px';
-      tooltip.style.top = e.clientY + 'px';
-    } else {
-      tooltip.style.display = 'none';
-    }
-  });
 
-  // Recompute graph with new threshold
+  // recompute
   function recomputeAndRender() {
     const minMentions = parseInt(minCountInput.value, 10) || 1;
-    const g = buildGraph(minMentions);
-    graph = g;
+    graph = buildGraph(minMentions);
     clearLabels();
     fitCanvas();
     updateLinkStats();
     startSim();
   }
 
-  // Bootstrap
+  // init
   (async function init() {
     try {
       fitCanvas();
-
-      // Enable zoom + pan
       d3.select(canvas)
         .call(d3.zoom()
           .scaleExtent([0.25, 6])
@@ -530,6 +332,4 @@ function parseDateFromDataDate(val) {
   })();
 })();
 </script>
-</body>
-</html>
 
