@@ -1,34 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quasi Social Graph (since 2025-09-22)</title>
+<style>
+  :root { --bg:#000; --fg:#fff; --muted:#aaa; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font-family:"Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif; }
+  a { color:var(--fg); text-decoration:underline; }
+  .wrap { display:grid; grid-template-rows:auto 1fr; height:100%; }
+  header { padding:12px 16px; border-bottom:1px solid #222; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; letter-spacing:.2px; font-weight:600; }
+  header .controls { display:flex; align-items:center; gap:12px; flex-wrap:wrap; color:var(--muted); }
+  label { font-size:12px; } input[type="range"]{ width:180px; }
+  .hint { font-size:12px; color:var(--muted); }
+  #graph { position:relative; width:100%; height:calc(100vh - 60px); }
+  canvas { display:block; width:100%; height:100%; background:#000; }
+  .tooltip { position:fixed; pointer-events:none; background:#000; color:#fff; padding:6px 8px; border:1px solid #333; border-radius:8px; font-size:12px; white-space:nowrap; transform:translate(-50%,-140%); display:none; }
+  .legend { position:absolute; left:12px; bottom:12px; font-size:12px; color:var(--muted); }
+  .error { color:#f66; font-size:12px; margin-left:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Quasi Social Graph</h1>
+    <div class="controls">
+      <label>Min mentions: <span id="minCountLabel">1</span>
+        <input id="minCount" type="range" min="1" max="10" value="1" step="1" />
+      </label>
+      <label>Since: <strong>2025-09-22</strong></label>
+      <label>Decay: <code>1 − 0.01 × days_ago</code></label>
+      <span class="hint">(Zoom: scroll, Pan: drag. Click labels to open Twitter.)</span>
+      <span id="status" class="hint"></span>
+      <span id="error" class="error"></span>
+    </div>
+  </header>
+  <div id="graph">
+    <canvas id="c"></canvas>
+    <div id="tooltip" class="tooltip"></div>
+    <div class="legend">White nodes/edges on black; font: Helvetica Neue.</div>
+  </div>
+</div>
+
 <script>
 (function () {
-  // ---- Minimal status + hard guards ----
+  // ==== DOM & Status ====
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
+  const tooltip = document.getElementById('tooltip');
   const statusEl = document.getElementById('status');
   const errEl = document.getElementById('error');
-  const mm = (m)=> statusEl.textContent = m;
+  const minCountInput = document.getElementById('minCount');
+  const minCountLabel = document.getElementById('minCountLabel');
 
-  // Show any runtime errors in red
-  window.addEventListener('error', e => {
-    errEl.textContent = String(e.error || e.message || e);
-  });
+  function setStatus(s){ statusEl.textContent = s; }
+  window.addEventListener('error', e => { errEl.textContent = String(e.error || e.message || e); });
 
-  // If we ever get here, JS at least started:
-  mm('boot…');
-
-  // ---- Config ----
-  const SOCIAL_URL = '/social';
-  const CUTOFF_ISO = '2025-09-22';
-  const TW_HOSTS = new Set(['twitter.com','x.com','mobile.twitter.com']);
-
-  // Zoom/pan
-  let zoomTransform = d3 && d3.zoomIdentity ? d3.zoomIdentity : {x:0,y:0,k:1};
-  function project(x,y){ return [zoomTransform.x + x*zoomTransform.k, zoomTransform.y + y*zoomTransform.k]; }
-  function unproject(x,y){
-    const k = zoomTransform.k || 1;
-    return [(x - zoomTransform.x)/k, (y - zoomTransform.y)/k];
-  }
-
-  // Retina canvas
+  // Paint black immediately
   function fitCanvas() {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     const { clientWidth:w, clientHeight:h } = canvas.parentElement;
@@ -38,40 +68,28 @@
     canvas.style.height = h + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
+  function paintBlack() {
+    const { clientWidth:w, clientHeight:h } = canvas;
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0);
+    ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
+    ctx.restore();
+  }
   window.addEventListener('resize', () => { fitCanvas(); render(); });
 
-  // UI
-  const minCountInput = document.getElementById('minCount');
-  const minCountLabel = document.getElementById('minCountLabel');
-  minCountInput.addEventListener('input', () => {
-    minCountLabel.textContent = minCountInput.value;
-    recomputeAndRender();
-  });
+  // ==== Config & Helpers ====
+  const SOCIAL_URL = '/social';
+  const CUTOFF_ISO = '2025-09-22';
+  const TW_HOSTS = new Set(['twitter.com','x.com','mobile.twitter.com']);
 
-  // ---- Helpers ----
   function parseDateFromDataDate(val) {
     if (!val) return null;
     const s = String(val).trim();
-    if (/^\d{6}$/.test(s)) { // MMDDYY
-      const mm = +s.slice(0,2), dd = +s.slice(2,4), yy = +s.slice(4,6);
-      const d = new Date(2000 + yy, mm-1, dd);
-      return isNaN(d) ? null : d;
-    }
-    if (/^\d{8}$/.test(s)) { // MMDDYYYY
-      const mm = +s.slice(0,2), dd = +s.slice(2,4), yyyy = +s.slice(4,8);
-      const d = new Date(yyyy, mm-1, dd);
-      return isNaN(d) ? null : d;
-    }
+    if (/^\d{6}$/.test(s)) { const mm=+s.slice(0,2), dd=+s.slice(2,4), yy=+s.slice(4,6); const d=new Date(2000+yy, mm-1, dd); return isNaN(d)?null:d; }
+    if (/^\d{8}$/.test(s)) { const mm=+s.slice(0,2), dd=+s.slice(2,4), yyyy=+s.slice(4,8); const d=new Date(yyyy, mm-1, dd); return isNaN(d)?null:d; }
     return null;
   }
-  function getCutoffDate() {
-    const [y,m,d] = CUTOFF_ISO.split('-').map(Number);
-    return new Date(y, m-1, d);
-  }
-  function daysAgo(date) {
-    const ms = Date.now() - date.getTime();
-    return Math.max(0, Math.floor(ms / 86400000));
-  }
+  function getCutoffDate(){ const [y,m,d]=CUTOFF_ISO.split('-').map(Number); return new Date(y,m-1,d); }
+  function daysAgo(date){ return Math.max(0, Math.floor((Date.now()-date.getTime())/86400000)); }
   function extractHandleFromHref(href) {
     try {
       const u = new URL(href, location.origin);
@@ -83,29 +101,25 @@
     } catch { return null; }
   }
 
-  // ---- Data ----
-  let rawPosts = [];           // [{date, handles:Set}]
+  // ==== Data ====
+  let rawPosts = [];
   let graph = { nodes:[], links:[] };
-  let sim = null;
-  const labels = new Map();
 
-  // Fetch & parse /social
   async function loadSocial() {
-    mm('fetching /social…');
-    const res = await fetch(SOCIAL_URL, { credentials: 'same-origin' });
+    setStatus('fetching /social…');
+    const res = await fetch(SOCIAL_URL, { credentials:'same-origin' });
     if (!res.ok) throw new Error('Failed to fetch /social');
     const html = await res.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
     const cutoff = getCutoffDate();
-    const nodes = Array.from(doc.querySelectorAll('p[data-type="social"][data-date]'));
-    mm(`found ${nodes.length} social nodes`);
+    const ps = Array.from(doc.querySelectorAll('p[data-type="social"][data-date]'));
+    setStatus(`found ${ps.length} social nodes`);
 
     const posts = [];
-    nodes.forEach(el => {
+    ps.forEach(el => {
       const date = parseDateFromDataDate(el.getAttribute('data-date'));
       if (!date || date < cutoff) return;
-
       const handles = new Set();
       el.querySelectorAll('a[href]').forEach(a => {
         const h = extractHandleFromHref(a.getAttribute('href'));
@@ -113,216 +127,251 @@
       });
       if (handles.size >= 1) posts.push({ date, handles });
     });
-
-    posts.sort((a,b) => a.date - b.date);
+    posts.sort((a,b)=>a.date-b.date);
     rawPosts = posts;
-    mm(`parsed ${posts.length} posts since 2025-09-22`);
+    setStatus(`parsed ${posts.length} posts since 2025-09-22`);
   }
 
-  // Build graph
   function buildGraph(minMentions=1) {
     const mentionCounts = new Map();
     rawPosts.forEach(p => p.handles.forEach(h => mentionCounts.set(h, (mentionCounts.get(h)||0)+1)));
+    const eligible = new Set([...mentionCounts.entries()].filter(([,c])=>c>=minMentions).map(([h])=>h));
 
-    const eligible = new Set([...mentionCounts.entries()]
-      .filter(([,c]) => c >= minMentions)
-      .map(([h]) => h));
-
-    const linkKey = (a,b) => a < b ? `${a}|${b}` : `${b}|${a}`;
+    const linkKey = (a,b)=>a<b?`${a}|${b}`:`${b}|${a}`;
     const linksMap = new Map();
 
     rawPosts.forEach(p => {
       const hs = [...p.handles].filter(h => eligible.has(h));
       if (hs.length < 2) return;
-      const w = Math.max(0, 1 - 0.01 * daysAgo(p.date));
+      const w = Math.max(0, 1 - 0.01*daysAgo(p.date));
       for (let i=0;i<hs.length;i++) for (let j=i+1;j<hs.length;j++) {
-        const a = hs[i], b = hs[j];
-        const key = linkKey(a,b);
+        const a=hs[i], b=hs[j], key=linkKey(a,b);
         const prev = linksMap.get(key) || { source:a, target:b, value:0, count:0 };
-        prev.value += w; prev.count += 1;
-        linksMap.set(key, prev);
+        prev.value += w; prev.count += 1; linksMap.set(key, prev);
       }
     });
 
-    const nodes = [...eligible].map(h => ({ id:h, handle:h, mentions: mentionCounts.get(h)||0 }));
-    const links = [...linksMap.values()];
-    return { nodes, links, mentionCounts };
+    return {
+      nodes: [...eligible].map(h=>({ id:h, handle:h, mentions: mentionCounts.get(h)||0 })),
+      links: [...linksMap.values()]
+    };
   }
 
-  // Distances
-  let VMIN = 0, VMAX = 1;
-  function updateLinkStats() {
-    const vals = graph.links.map(l => l.value || 0);
-    if (!vals.length) { VMIN=0; VMAX=1; return; }
-    VMIN = Math.min(...vals);
-    VMAX = Math.max(...vals);
-    if (VMAX === VMIN) VMAX = VMIN + 1;
-  }
-  function nodeRadius(n) { return 4 + Math.min(14, n.mentions * 1.2); }
-  function linkWidth(_) { return 0.4; }
-  function linkDistance(l) {
-    const w = canvas.parentElement.clientWidth;
-    const h = canvas.parentElement.clientHeight;
-    const dMin = 26;
-    const dMax = Math.max(140, 0.55 * Math.min(w, h));
-    const v = (l.value || 0);
-    const t = (v - VMIN) / (VMAX - VMIN);
-    return dMax - t * (dMax - dMin); // stronger → shorter
-  }
+  // ==== Vanilla force simulation + zoom/pan ====
+  // Zoom/pan
+  let zoom = 1, offsetX = 0, offsetY = 0;
+  function screenToWorld(x,y){ return { x:(x - offsetX)/zoom, y:(y - offsetY)/zoom }; }
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const scale = Math.exp(-e.deltaY * 0.0015);
+    const rect = canvas.getBoundingClientRect();
+    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+    const before = screenToWorld(cx, cy);
+    zoom = Math.max(0.25, Math.min(6, zoom * scale));
+    const after = screenToWorld(cx, cy);
+    offsetX += (after.x - before.x) * zoom;
+    offsetY += (after.y - before.y) * zoom;
+    render();
+  }, { passive:false });
+  let panning=false, lastX=0, lastY=0;
+  canvas.addEventListener('mousedown', e=>{ panning=true; lastX=e.clientX; lastY=e.clientY; });
+  window.addEventListener('mouseup', ()=>{ panning=false; });
+  window.addEventListener('mousemove', e=>{
+    if (!panning) return;
+    offsetX += (e.clientX - lastX);
+    offsetY += (e.clientY - lastY);
+    lastX = e.clientX; lastY = e.clientY;
+    render();
+  });
 
-  // Labels
-  function clearLabels(){ labels.forEach(el => el.remove()); labels.clear(); }
-  function placeLabel(node) {
-    let el = labels.get(node.id);
-    if (!el) {
-      el = document.createElement('a');
-      el.href = `https://twitter.com/${node.handle}`;
-      el.target = '_blank'; el.rel = 'noopener';
-      el.style.position = 'absolute';
-      el.style.color = '#fff';
-      el.style.textDecoration = 'none';
-      el.style.fontSize = '12px';
-      el.style.padding = '2px 3px';
-      el.style.borderRadius = '6px';
-      el.textContent = '@' + node.handle;
-      canvas.parentElement.appendChild(el);
-      labels.set(node.id, el);
+  // Force params + state
+  let nodes=[], links=[];
+  let animId = null;
+
+  function layoutGraph() {
+    // Init node positions on jittered grid
+    const W = canvas.parentElement.clientWidth, H = canvas.parentElement.clientHeight;
+    nodes.forEach((n,i)=>{
+      const cols = Math.ceil(Math.sqrt(nodes.length));
+      const x = (i % cols) / (cols - 1 || 1);
+      const y = Math.floor(i / cols) / (cols - 1 || 1);
+      n.x = 40 + x*(W-80) + (Math.random()-0.5)*24;
+      n.y = 40 + y*(H-80) + (Math.random()-0.5)*24;
+      n.vx = 0; n.vy = 0;
+    });
+
+    // Spring target length from weight (stronger -> shorter)
+    const vals = links.map(l=>l.value||0);
+    let vmin=0, vmax=1; if (vals.length){ vmin=Math.min(...vals); vmax=Math.max(...vals); if (vmax===vmin) vmax=vmin+1; }
+    links.forEach(l=>{
+      const t = ((l.value||0) - vmin) / (vmax - vmin);
+      const dMin = 26, dMax = Math.max(140, 0.55*Math.min(W,H));
+      l.len = dMax - t*(dMax - dMin);
+      l.a = nodes.find(n=>n.id===l.source);
+      l.b = nodes.find(n=>n.id===l.target);
+    });
+
+    // Run simulation
+    let steps = 0;
+    function step() {
+      steps++;
+      const kSpring = 0.01;         // spring constant
+      const kRepel = 2500;          // repulsion strength
+      const centerK = 0.0005;       // gentle centering
+      const friction = 0.85;        // velocity damping
+
+      // Repulsion
+      for (let i=0;i<nodes.length;i++){
+        for (let j=i+1;j<nodes.length;j++){
+          const a=nodes[i], b=nodes[j];
+          let dx=b.x-a.x, dy=b.y-a.y, d2=dx*dx+dy*dy;
+          if (d2===0){ dx=(Math.random()-0.5)*1e-3; dy=(Math.random()-0.5)*1e-3; d2=dx*dx+dy*dy; }
+          const f = kRepel / d2;
+          const dist = Math.sqrt(d2);
+          const fx = f * dx/dist, fy = f * dy/dist;
+          a.vx -= fx; a.vy -= fy; b.vx += fx; b.vy += fy;
+        }
+      }
+
+      // Springs
+      for (const l of links){
+        const a=l.a, b=l.b; if (!a||!b) continue;
+        let dx=b.x-a.x, dy=b.y-a.y;
+        let dist = Math.sqrt(dx*dx+dy*dy) || 1e-6;
+        const diff = dist - l.len;
+        const f = kSpring * diff;
+        const fx = f * dx/dist, fy = f * dy/dist;
+        a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+      }
+
+      // Centering + integrate
+      const cx = W/2, cy = H/2;
+      let kinetic = 0;
+      for (const n of nodes){
+        n.vx += (cx - n.x)*centerK;
+        n.vy += (cy - n.y)*centerK;
+        n.vx *= friction; n.vy *= friction;
+        n.x += n.vx; n.y += n.vy;
+        kinetic += n.vx*n.vx + n.vy*n.vy;
+      }
+
+      render();
+
+      if (steps < 800 && kinetic > 0.01) {
+        animId = requestAnimationFrame(step);
+      } else {
+        setStatus(`layout settled in ${steps} steps`);
+        animId = null;
+      }
     }
-    const [sx, sy] = project(node.x || 0, node.y || 0);
-    const r = nodeRadius(node);
-    const rect = el.getBoundingClientRect();
-    el.style.left = (sx - rect.width/2) + 'px';
-    el.style.top  = (sy - (r * (zoomTransform.k||1)) - rect.height - 4) + 'px';
+    if (animId) cancelAnimationFrame(animId);
+    animId = requestAnimationFrame(step);
   }
 
-  // Render (always paints a black background first so you never see white)
+  // ==== Render ====
+  function nodeRadius(n){ return 4 + Math.min(14, (n.mentions||0) * 1.2); }
+  const labels = new Map();
   function render() {
     const { clientWidth:w, clientHeight:h } = canvas;
-    // black background safety
+    // Black background
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0);
+    ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h); ctx.restore();
+
+    // World->screen transform
     ctx.save();
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0,0,w,h);
-    ctx.restore();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(zoom, zoom);
 
-    if (!graph.nodes.length) { clearLabels(); return; }
-
-    ctx.save();
-    ctx.translate(zoomTransform.x||0, zoomTransform.y||0);
-    ctx.scale(zoomTransform.k||1, zoomTransform.k||1);
-
-    // edges
+    // Edges (thin, constant)
     ctx.globalAlpha = 0.9;
-    graph.links.forEach(l => {
-      ctx.beginPath();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = linkWidth(l);
-      ctx.moveTo(l.source.x, l.source.y);
-      ctx.lineTo(l.target.x, l.target.y);
-      ctx.stroke();
-    });
+    ctx.strokeStyle = '#ffffff';
+    for (const l of links){
+      const a=l.a, b=l.b; if (!a||!b) continue;
+      ctx.beginPath(); ctx.lineWidth = 0.4;
+      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
 
-    // nodes (hollow)
-    graph.nodes.forEach(n => {
+    // Nodes (hollow)
+    for (const n of nodes){
       ctx.beginPath();
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.2 / Math.max(1, (zoomTransform.k||1) * 0.9);
-      ctx.arc(n.x, n.y, nodeRadius(n), 0, Math.PI * 2);
+      ctx.lineWidth = 1.2 / Math.max(1, zoom*0.9);
+      ctx.arc(n.x, n.y, nodeRadius(n), 0, Math.PI*2);
       ctx.stroke();
-    });
+    }
 
     ctx.restore();
-    graph.nodes.forEach(n => placeLabel(n));
-  }
 
-  // Start simulation
-  function startSim() {
-    if (!window.d3 || !d3.forceSimulation) throw new Error('D3 failed to load');
-    if (sim) sim.stop();
-
-    const w = canvas.parentElement.clientWidth;
-    const h = canvas.parentElement.clientHeight;
-
-    // seed grid
-    graph.nodes.forEach((n, i) => {
-      if (typeof n.x !== 'number' || typeof n.y !== 'number') {
-        const cols = Math.ceil(Math.sqrt(graph.nodes.length));
-        const x = (i % cols) / (cols - 1 || 1);
-        const y = Math.floor(i / cols) / (cols - 1 || 1);
-        n.x = 40 + x * (w - 80) + (Math.random() - 0.5) * 24;
-        n.y = 40 + y * (h - 80) + (Math.random() - 0.5) * 24;
+    // Labels in screen space
+    for (const n of nodes){
+      let el = labels.get(n.id);
+      if (!el) {
+        el = document.createElement('a');
+        el.href = `https://twitter.com/${n.handle}`;
+        el.target = '_blank'; el.rel = 'noopener';
+        el.style.position = 'absolute';
+        el.style.color = '#fff';
+        el.style.textDecoration = 'none';
+        el.style.fontSize = '12px';
+        el.style.padding = '2px 3px';
+        el.style.borderRadius = '6px';
+        el.textContent = '@' + n.handle;
+        canvas.parentElement.appendChild(el);
+        labels.set(n.id, el);
       }
-    });
-
-    updateLinkStats();
-
-    sim = d3.forceSimulation(graph.nodes)
-      .force('link', d3.forceLink(graph.links)
-        .id(d => d.id)
-        .distance(linkDistance)
-        .strength(l => 0.15 + 0.85 * ((l.value - VMIN) / (VMAX - VMIN)))
-      )
-      .force('charge', d3.forceManyBody().strength(-320))
-      .force('center', d3.forceCenter(w/2, h/2))
-      .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 12).iterations(2))
-      .velocityDecay(0.25)
-      .on('tick', render);
+      const r = nodeRadius(n);
+      const sx = offsetX + n.x*zoom;
+      const sy = offsetY + n.y*zoom;
+      const rect = el.getBoundingClientRect();
+      el.style.left = (sx - rect.width/2) + 'px';
+      el.style.top  = (sy - r*zoom - rect.height - 4) + 'px';
+    }
   }
+  function clearLabels(){ labels.forEach(el=>el.remove()); labels.clear(); }
 
-  // Hover
-  const tooltip = document.getElementById('tooltip');
+  // Tooltip
   canvas.addEventListener('mousemove', (e) => {
     const rect = canvas.getBoundingClientRect();
-    const [ux, uy] = unproject(e.clientX - rect.left, e.clientY - rect.top);
-    const hit = (() => {
-      for (let i = graph.nodes.length - 1; i >= 0; i--) {
-        const n = graph.nodes[i], r = nodeRadius(n);
-        const dx = ux - n.x, dy = uy - n.y;
-        if (dx*dx + dy*dy <= r*r) return n;
-      }
-      return null;
-    })();
+    const x = (e.clientX - rect.left - offsetX) / zoom;
+    const y = (e.clientY - rect.top  - offsetY) / zoom;
+    let hit = null;
+    for (let i=nodes.length-1;i>=0;i--){
+      const n = nodes[i], r=nodeRadius(n);
+      const dx=x-n.x, dy=y-n.y;
+      if (dx*dx+dy*dy <= r*r) { hit = n; break; }
+    }
     if (hit) {
-      tooltip.style.display = 'block';
+      tooltip.style.display='block';
       tooltip.textContent = `@${hit.handle} — mentions: ${hit.mentions}`;
       tooltip.style.left = e.clientX + 'px';
       tooltip.style.top  = e.clientY + 'px';
     } else {
-      tooltip.style.display = 'none';
+      tooltip.style.display='none';
     }
   });
 
-  // Recompute
+  // ==== Recompute ====
   function recomputeAndRender() {
     const minMentions = parseInt(minCountInput.value, 10) || 1;
     graph = buildGraph(minMentions);
+    nodes = graph.nodes;
+    links = graph.links.map(l => ({...l})); // copy for refs
+    // attach refs after nodes set
+    links.forEach(l => { l.a = nodes.find(n=>n.id===l.source); l.b = nodes.find(n=>n.id===l.target); });
     clearLabels();
     fitCanvas();
-    updateLinkStats();
-    // If graph empty, still render black bg so it’s never white
-    render();
-    if (graph.nodes.length) startSim();
+    paintBlack();
+    if (!nodes.length) { setStatus('no eligible nodes with current filter'); render(); return; }
+    setStatus(`nodes: ${nodes.length} | links: ${links.length}`);
+    layoutGraph();
   }
 
-  // Init
-  (async function init() {
+  // ==== Init ====
+  (async function init(){
     try {
-      fitCanvas();
-      // Zoom only if d3 is present
-      if (window.d3 && d3.zoom) {
-        d3.select(canvas)
-          .call(d3.zoom()
-            .scaleExtent([0.25, 6])
-            .on('zoom', (event) => { zoomTransform = event.transform; render(); })
-          )
-          .on('dblclick.zoom', null);
-      } else {
-        mm('warning: d3 not loaded; zoom disabled');
-      }
-
-      // Paint black immediately so you never see white
-      render();
-
+      setStatus('boot…');
+      fitCanvas(); paintBlack();
+      minCountLabel.textContent = minCountInput.value;
       await loadSocial();
       recomputeAndRender();
     } catch (err) {
@@ -330,5 +379,13 @@
       errEl.textContent = String(err.message || err);
     }
   })();
+
+  // UI change
+  minCountInput.addEventListener('input', () => {
+    minCountLabel.textContent = minCountInput.value;
+    recomputeAndRender();
+  });
 })();
 </script>
+</body>
+</html>
