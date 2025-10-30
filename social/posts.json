@@ -1,57 +1,97 @@
 [
   {
     "id": "sample1",
-    "path": "social/index.html",
+    "path": "blog/index.html",
     "date": "2025-10-29T00:00:00.000Z",
-    "title": "sample post 1",
+    "title": "hangout with friends",
     "handles": [
       "@conejocapital",
       "@wesamo__",
-      "@jacobarluck"
+      "@jacobarluck",
+      "@__mihir"
     ]
   },
   {
     "id": "sample2",
-    "path": "social/index.html",
+    "path": "blog/index.html",
     "date": "2025-10-28T00:00:00.000Z",
-    "title": "sample post 2",
+    "title": "coffee and discussions",
     "handles": [
       "@colludingnode",
-      "@conejocapital"
+      "@conejocapital",
+      "@kitvolta"
     ]
   },
   {
     "id": "sample3",
-    "path": "social/index.html",
+    "path": "blog/index.html",
     "date": "2025-10-27T00:00:00.000Z",
-    "title": "sample post 3",
+    "title": "dinner party",
     "handles": [
       "@colludingnode",
       "@conejocapital",
       "@kitvolta",
-      "@luoser"
+      "@luoser",
+      "@__mihir"
     ]
   },
   {
     "id": "sample4",
-    "path": "social/index.html",
+    "path": "blog/index.html",
     "date": "2025-10-26T00:00:00.000Z",
-    "title": "sample post 4",
+    "title": "art gallery visit",
     "handles": [
       "@conejocapital",
-      "@poolnoodle93"
+      "@poolnoodle93",
+      "@wesamo__"
     ]
   },
   {
     "id": "sample5",
-    "path": "social/index.html",
+    "path": "blog/index.html",
     "date": "2025-10-25T00:00:00.000Z",
-    "title": "sample post 5",
+    "title": "work session",
     "handles": [
       "@__mihir",
       "@afflictedgirl",
       "@f4eth",
-      "@_casscore"
+      "@_casscore",
+      "@blissposting"
+    ]
+  },
+  {
+    "id": "sample6",
+    "path": "blog/index.html",
+    "date": "2025-10-24T00:00:00.000Z",
+    "title": "birthday celebration",
+    "handles": [
+      "@conejocapital",
+      "@wesamo__",
+      "@jacobarluck",
+      "@colludingnode",
+      "@__mihir"
+    ]
+  },
+  {
+    "id": "sample7",
+    "path": "blog/index.html",
+    "date": "2025-10-23T00:00:00.000Z",
+    "title": "concert",
+    "handles": [
+      "@kitvolta",
+      "@colludingnode",
+      "@arbitragegoth"
+    ]
+  },
+  {
+    "id": "sample8",
+    "path": "blog/index.html",
+    "date": "2025-10-22T00:00:00.000Z",
+    "title": "movie night",
+    "handles": [
+      "@conejocapital",
+      "@wesamo__",
+      "@jacobarluck"
     ]
   }
 ]
