@@ -222,6 +222,8 @@ function parseDateFromDataDate(val) {
         const h = extractHandleFromHref(a.getAttribute('href'));
         if (h) handles.add(h.toLowerCase());
       });
+      // Ensure @quasimatt is present in every post
+      handles.add('quasimatt');
       if (handles.size >= 1) posts.push({ date, handles });
     });
 
@@ -314,7 +316,7 @@ function parseDateFromDataDate(val) {
     const cy = sy - (r * zoomTransform.k) - rect.height - 4;
     el.style.left = cx + 'px';
     el.style.top = cy + 'px';
-  }`;
+  };
       el.target = '_blank'; el.rel = 'noopener';
       el.style.position = 'absolute';
       el.style.color = '#fff';
@@ -530,3 +532,4 @@ function parseDateFromDataDate(val) {
 </script>
 </body>
 </html>
+
