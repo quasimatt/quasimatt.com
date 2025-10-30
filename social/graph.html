@@ -1,23 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quasi Social Graph (since 2025-09-22)</title>
+  <style>
+    :root { --bg:#000; --fg:#fff; --muted:#aaa; }
+    html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+      font-family:"Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif; }
+    a { color:var(--fg); text-decoration:underline; }
+    .wrap { display:grid; grid-template-rows:auto 1fr; height:100%; }
+    header { padding:12px 16px; border-bottom:1px solid #222; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header h1 { font-size:16px; margin:0; letter-spacing:.2px; font-weight:600; }
+    header .controls { display:flex; align-items:center; gap:12px; flex-wrap:wrap; color:var(--muted); }
+    label { font-size:12px; } input[type="range"]{ width:180px; }
+    .hint { font-size:12px; color:var(--muted); }
+    #graph { position:relative; width:100%; height:calc(100vh - 60px); }
+    canvas { display:block; width:100%; height:100%; background:#000; }
+    .tooltip { position:fixed; pointer-events:none; background:#000; color:#fff;
+      padding:6px 8px; border:1px solid #333; border-radius:8px; font-size:12px; white-space:nowrap;
+      transform:translate(-50%,-140%); }
+    .legend { position:absolute; left:12px; bottom:12px; font-size:12px; color:var(--muted); }
+    .error { color:#f66; font-size:12px; margin-left:8px; }
+  </style>
+  <script src="https://unpkg.com/d3@7/dist/d3.min.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Quasi Social Graph</h1>
+      <div class="controls">
+        <label>Min mentions: <span id="minCountLabel">1</span>
+          <input id="minCount" type="range" min="1" max="10" value="1" step="1" />
+        </label>
+        <label>Since: <strong>2025-09-22</strong></label>
+        <label>Decay: <code>1 − 0.01 × days_ago</code></label>
+        <span class="hint">(Zoom: scroll; Pan: drag. Click labels to open Twitter.)</span>
+        <span id="status" class="hint"></span>
+        <span id="error" class="error"></span>
+      </div>
+    </header>
+    <div id="graph">
+      <canvas id="c"></canvas>
+      <div id="tooltip" class="tooltip" style="display:none"></div>
+      <div class="legend">White nodes/edges on black; font: Helvetica Neue.</div>
+    </div>
+  </div>
+
 <script>
 (function () {
-  // --- Configuration ---
+  // --- Basic wiring ---
   const SOCIAL_URL = '/social';
-  const CUTOFF_ISO = '2025-09-22';
+  const CUTOFF_ISO = '2025-09-22'; // inclusive
   const TW_HOSTS = new Set(['twitter.com','x.com','mobile.twitter.com']);
 
-  // Canvas & DOM
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
   const tooltip = document.getElementById('tooltip');
   const statusEl = document.getElementById('status');
   const errEl = document.getElementById('error');
+  const minCountInput = document.getElementById('minCount');
+  const minCountLabel = document.getElementById('minCountLabel');
 
-  // Zoom/pan
+  // surface errors instead of silent blank pages
+  window.addEventListener('error', e => errEl.textContent = String(e.error || e.message || e));
+
+  // zoom/pan
   let zoomTransform = d3.zoomIdentity;
-  function project(x, y) { return [zoomTransform.applyX(x), zoomTransform.applyY(y)]; }
-  function unproject(x, y) { return [zoomTransform.invertX(x), zoomTransform.invertY(y)]; }
+  function project(x,y){ return [zoomTransform.applyX(x), zoomTransform.applyY(y)]; }
+  function unproject(x,y){ return [zoomTransform.invertX(x), zoomTransform.invertY(y)]; }
 
-  // Resize
+  // retina canvas
   function fitCanvas() {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     const { clientWidth:w, clientHeight:h } = canvas.parentElement;
@@ -30,39 +83,21 @@
   window.addEventListener('resize', () => { fitCanvas(); render(); });
 
   // UI
-  const minCountInput = document.getElementById('minCount');
-  const minCountLabel = document.getElementById('minCountLabel');
   minCountInput.addEventListener('input', () => {
     minCountLabel.textContent = minCountInput.value;
     recomputeAndRender();
   });
 
-  // --- Parsing helpers ---
-  function parseDateFromText(t) {
-    if (!t) return null;
-    const s = t.trim();
-    let m = s.match(/(20\d{2})[-\/\. ](\d{1,2})[-\/\. ](\d{1,2})/);
-    if (m) {
-      const d = new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
-      return isNaN(d) ? null : d;
-    }
-    const mn = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)';
-    m = s.toLowerCase().match(new RegExp(`${mn}\\.?(?:ember|uary|ch|il|e|y|ust|tember|ober|ember|c)?\\s+\\d{1,2},?\\s+20\\d{2}`));
-    if (m) {
-      const d = new Date(m[0]);
-      return isNaN(d) ? null : d;
-    }
-    return null;
-  }
+  // --- Date helpers (keep it simple / robust) ---
   function parseDateFromDataDate(val) {
     if (!val) return null;
     const s = String(val).trim();
-    if (/^\d{6}$/.test(s)) {
+    if (/^\d{6}$/.test(s)) { // MMDDYY -> assume 20YY
       const mm = +s.slice(0,2), dd = +s.slice(2,4), yy = +s.slice(4,6);
       const d = new Date(2000 + yy, mm-1, dd);
       return isNaN(d) ? null : d;
     }
-    if (/^\d{8}$/.test(s)) {
+    if (/^\d{8}$/.test(s)) { // MMDDYYYY
       const mm = +s.slice(0,2), dd = +s.slice(2,4), yyyy = +s.slice(4,8);
       const d = new Date(yyyy, mm-1, dd);
       return isNaN(d) ? null : d;
@@ -99,22 +134,14 @@
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
     const cutoff = getCutoffDate();
-    let nodes = Array.from(doc.querySelectorAll('[data-type="social"]'));
-    if (!nodes.length) nodes = Array.from(doc.querySelectorAll('p, article, .post, .entry'));
+    // Only trust your explicit structure for stability
+    const nodes = Array.from(doc.querySelectorAll('p[data-type="social"][data-date]'));
+    statusEl.textContent = `Found ${nodes.length} social nodes`;
 
     const posts = [];
     nodes.forEach(el => {
-      let date = null;
-      const dd = el.getAttribute('data-date') || el.dataset?.date;
-      if (dd) date = parseDateFromDataDate(dd);
-      if (!date) {
-        const t = el.querySelector('time[datetime]') || el.closest('article')?.querySelector('time[datetime]');
-        if (t) {
-          const d = new Date(t.getAttribute('datetime'));
-          if (!isNaN(d)) date = d;
-        }
-      }
-      if (!date) date = parseDateFromText(el.textContent || '');
+      const dd = el.getAttribute('data-date');
+      const date = parseDateFromDataDate(dd);
       if (!date || date < cutoff) return;
 
       const handles = new Set();
@@ -122,7 +149,9 @@
         const h = extractHandleFromHref(a.getAttribute('href'));
         if (h) handles.add(h.toLowerCase());
       });
-      handles.add('quasimatt'); // always include @quasimatt
+      // Always include @quasimatt in each post
+      handles.add('quasimatt');
+
       if (handles.size >= 1) posts.push({ date, handles });
     });
 
@@ -135,7 +164,10 @@
   function buildGraph(minMentions=1) {
     const mentionCounts = new Map();
     rawPosts.forEach(p => p.handles.forEach(h => mentionCounts.set(h, (mentionCounts.get(h)||0)+1)));
-    const eligible = new Set([...mentionCounts.entries()].filter(([,c]) => c >= minMentions).map(([h]) => h));
+
+    const eligible = new Set([...mentionCounts.entries()]
+      .filter(([,c]) => c >= minMentions)
+      .map(([h]) => h));
 
     const linkKey = (a,b) => a < b ? `${a}|${b}` : `${b}|${a}`;
     const linksMap = new Map();
@@ -158,12 +190,11 @@
     return { nodes, links, mentionCounts };
   }
 
-  // --- Layout + Render ---
+  // --- Layout + render ---
   let sim = null;
   let graph = { nodes:[], links:[] };
   const labels = new Map();
 
-  // edge length mapping (normalize by min/max)
   let VMIN = 0, VMAX = 1;
   function updateLinkStats() {
     const vals = graph.links.map(l => l.value || 0);
@@ -182,10 +213,10 @@
     const dMax = Math.max(140, 0.55 * Math.min(w, h));
     const v = (l.value || 0);
     const t = (v - VMIN) / (VMAX - VMIN);
-    return dMax - t * (dMax - dMin);
+    return dMax - t * (dMax - dMin); // stronger → shorter
   }
 
-  function clearLabels() { labels.forEach(el => el.remove()); labels.clear(); }
+  function clearLabels(){ labels.forEach(el => el.remove()); labels.clear(); }
   function placeLabel(node) {
     let el = labels.get(node.id);
     if (!el) {
@@ -205,14 +236,12 @@
     const [sx, sy] = project(node.x || 0, node.y || 0);
     const r = nodeRadius(node);
     const rect = el.getBoundingClientRect();
-    const cx = sx - rect.width/2;
-    const cy = sy - (r * zoomTransform.k) - rect.height - 4;
-    el.style.left = cx + 'px';
-    el.style.top = cy + 'px';
+    el.style.left = (sx - rect.width/2) + 'px';
+    el.style.top  = (sy - (r * zoomTransform.k) - rect.height - 4) + 'px';
   }
 
   function render() {
-    const { clientWidth: w, clientHeight: h } = canvas;
+    const { clientWidth:w, clientHeight:h } = canvas;
     ctx.clearRect(0, 0, w, h);
     if (!graph.nodes.length) { clearLabels(); return; }
 
@@ -241,8 +270,6 @@
     });
 
     ctx.restore();
-
-    // labels
     graph.nodes.forEach(n => placeLabel(n));
   }
 
@@ -252,7 +279,7 @@
     const w = canvas.parentElement.clientWidth;
     const h = canvas.parentElement.clientHeight;
 
-    // seed on a jittered grid
+    // seed on jittered grid for spread
     graph.nodes.forEach((n, i) => {
       if (typeof n.x !== 'number' || typeof n.y !== 'number') {
         const cols = Math.ceil(Math.sqrt(graph.nodes.length));
@@ -296,7 +323,7 @@
       tooltip.style.display = 'block';
       tooltip.textContent = `@${node.handle} — mentions: ${node.mentions}`;
       tooltip.style.left = e.clientX + 'px';
-      tooltip.style.top = e.clientY + 'px';
+      tooltip.style.top  = e.clientY + 'px';
     } else {
       tooltip.style.display = 'none';
     }
@@ -332,4 +359,6 @@
   })();
 })();
 </script>
+</body>
+</html>
 
