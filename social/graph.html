@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Quasi Social Graph (since 2025-09-22)</title>
+<title>quasimatt.com social graph</title>
 <style>
   :root { --bg:#000; --fg:#fff; --muted:#aaa; }
   html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
@@ -25,14 +25,13 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Quasi Social Graph</h1>
+    <h1>quasimatt.com social graph</h1>
     <div class="controls">
-      <label>Min mentions: <span id="minCountLabel">1</span>
+      <label>min mentions: <span id="minCountLabel">1</span>
         <input id="minCount" type="range" min="1" max="10" value="1" step="1" />
       </label>
-      <label>Since: <strong>2025-09-22</strong></label>
-      <label>Decay: <code>1 − 0.01 × days_ago</code></label>
-      <span class="hint">(Zoom: scroll, Pan: drag. Click labels to open Twitter.)</span>
+      <label>since: <strong>2025-09-22</strong></label>
+      <span class="hint">(zoom: scroll, pan: drag. click labels to open X.)</span>
       <span id="status" class="hint"></span>
       <span id="error" class="error"></span>
     </div>
@@ -40,7 +39,6 @@
   <div id="graph">
     <canvas id="c"></canvas>
     <div id="tooltip" class="tooltip"></div>
-    <div class="legend">White nodes/edges on black; font: Helvetica Neue.</div>
   </div>
 </div>
 
