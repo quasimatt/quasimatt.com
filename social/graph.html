@@ -69,11 +69,14 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   function paintBlack() {
-    const { clientWidth:w, clientHeight:h } = canvas;
-    ctx.save(); ctx.setTransform(1,0,0,1,0,0);
-    ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
-    ctx.restore();
+  ctx.save();
+  ctx.setTransform(1,0,0,1,0,0);           // identity
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
   }
+
   window.addEventListener('resize', () => { fitCanvas(); render(); });
 
   // ==== Config & Helpers ====
@@ -274,8 +277,14 @@
   function render() {
     const { clientWidth:w, clientHeight:h } = canvas;
     // Black background
-    ctx.save(); ctx.setTransform(1,0,0,1,0,0);
-    ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h); ctx.restore();
+    function render() {
+  // Clear the entire backing store every frame (fixes “trails” on retina)
+  ctx.save();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
 
     // World->screen transform
     ctx.save();
