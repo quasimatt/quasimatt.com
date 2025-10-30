@@ -147,6 +147,31 @@
 
   // --- Fetch & parse the social page ---
   let rawPosts = []; // [{date: Date, handles: Set<string> }]
+  <script>
+// --- add this helper ---
+function parseDateFromDataDate(val) {
+  if (!val) return null;
+  const s = String(val).trim();
+  // MMDDYY  -> assume 20YY
+  if (/^\d{6}$/.test(s)) {
+    const mm = Number(s.slice(0,2));
+    const dd = Number(s.slice(2,4));
+    const yy = Number(s.slice(4,6));
+    const yyyy = 2000 + yy;
+    const d = new Date(yyyy, mm-1, dd);
+    return isNaN(d) ? null : d;
+  }
+  // MMDDYYYY
+  if (/^\d{8}$/.test(s)) {
+    const mm = Number(s.slice(0,2));
+    const dd = Number(s.slice(2,4));
+    const yyyy = Number(s.slice(4,8));
+    const d = new Date(yyyy, mm-1, dd);
+    return isNaN(d) ? null : d;
+  }
+  return null;
+}
+</script>
 
   async function loadSocial() {
     statusEl.textContent = 'Loading /social…';
