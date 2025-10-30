@@ -155,40 +155,44 @@
     const html = await res.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
-    // Heuristic: collect paragraphs and any blocks with data-date
     const cutoff = getCutoffDate();
-    const paras = Array.from(doc.querySelectorAll('p, article, .post, .entry'));
-    const posts = [];
 
-    paras.forEach(el => {
-      // Prefer explicit data-date or time element
+    // Your structure: <p data-type="social" data-date="MMDDYY|MMDDYYYY"> ... </p>
+    // We prioritize those exact nodes. Fallback to older heuristics if none found.
+    let nodes = Array.from(doc.querySelectorAll('[data-type="social"]'));
+    if (!nodes.length) {
+      nodes = Array.from(doc.querySelectorAll('p, article, .post, .entry'));
+    }
+
+    const posts = [];
+    nodes.forEach(el => {
+      // 1) Date via data-date (MMDDYY or MMDDYYYY)
       let date = null;
-      const timeEl = el.querySelector('time[datetime]') || el.closest('article')?.querySelector('time[datetime]');
-      if (timeEl) {
-        const d = new Date(timeEl.getAttribute('datetime'));
-        date = isNaN(d) ? null : d;
-      }
+      const dd = el.getAttribute('data-date') || el.dataset?.date;
+      if (dd) date = parseDateFromDataDate(dd);
+
+      // 2) Otherwise time[datetime]
       if (!date) {
-        const text = (el.textContent || '').trim();
-        date = parseDateFromText(text);
+        const timeEl = el.querySelector('time[datetime]') || el.closest('article')?.querySelector('time[datetime]');
+        if (timeEl) {
+          const d = new Date(timeEl.getAttribute('datetime'));
+          if (!isNaN(d)) date = d;
+        }
       }
+      // 3) Otherwise parse from text
+      if (!date) date = parseDateFromText(el.textContent || '');
       if (!date) return;
       if (date < cutoff) return;
 
-      // Collect unique twitter handles in this element
-      const anchors = Array.from(el.querySelectorAll('a[href]'));
+      // Extract Twitter/X handles from <a href>
       const handles = new Set();
-      anchors.forEach(a => {
+      el.querySelectorAll('a[href]').forEach(a => {
         const h = extractHandleFromHref(a.getAttribute('href'));
         if (h) handles.add(h.toLowerCase());
       });
       if (handles.size >= 1) posts.push({ date, handles });
     });
 
-    // Some pages structure posts at higher container (e.g., section > p). Try parents as posts as well.
-    // (Already covered via querySelectorAll heuristic.)
-
-    // Sort posts by date asc
     posts.sort((a,b) => a.date - b.date);
     rawPosts = posts;
     statusEl.textContent = `Parsed ${posts.length} posts since 2025‑09‑22.`;
@@ -378,3 +382,4 @@
 </script>
 </body>
 </html>
+
