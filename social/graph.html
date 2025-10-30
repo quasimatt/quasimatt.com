@@ -325,7 +325,7 @@ function parseDateFromDataDate(val) {
     graph.links.forEach(l => {
       ctx.beginPath();
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = linkWidth(l);
+      ctx.lineWidth = linkWidth(l); // constant width; distance encodes strength
       ctx.moveTo(l.source.x, l.source.y);
       ctx.lineTo(l.target.x, l.target.y);
       ctx.stroke();
@@ -405,5 +405,6 @@ function parseDateFromDataDate(val) {
 </script>
 </body>
 </html>
+
 
 
