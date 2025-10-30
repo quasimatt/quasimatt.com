@@ -31,6 +31,10 @@
       <label>min mentions: <span id="minCountLabel">1</span>
         <input id="minCount" type="range" min="1" max="10" value="3" step="1" />
       </label>
+      <label>
+        <input type="checkbox" id="showEdges" checked>
+        show edges
+      </label>
       <label>since: <strong>2025-09-22</strong></label>
       <span class="hint">(zoom: scroll, pan: drag. on desktop, click labels to open X.)</span>
       <span id="status" class="hint"></span>
@@ -55,6 +59,15 @@
   const minCountLabel = document.getElementById('minCountLabel');
   const graphEl = document.getElementById('graph');
 
+  const showEdgesInput = document.getElementById('showEdges');
+let showEdges = true;
+
+showEdgesInput.addEventListener('change', () => {
+  showEdges = showEdgesInput.checked;
+  render();
+});
+
+  
 // Trap wheel / touchmove so the page doesn't scroll when interacting with the graph
   ['wheel','touchmove'].forEach(evt => {
     graphEl.addEventListener(evt, e => e.preventDefault(), { passive: false });
@@ -412,12 +425,17 @@ graphEl.addEventListener('touchend', (e) => {
     ctx.scale(zoom, zoom);
 
     // Edges (thin, constant)
-    ctx.globalAlpha = 0.9;
-    ctx.strokeStyle = '#ffffff';
-    for (const l of links){
-      const a=l.a, b=l.b; if (!a||!b) continue;
-      ctx.beginPath(); ctx.lineWidth = 0.4;
-      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    // Edges (thin, constant)
+if (showEdges) {
+  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = '#ffffff';
+  for (const l of links){
+    const a=l.a, b=l.b; if (!a||!b) continue;
+    ctx.beginPath(); ctx.lineWidth = 0.4;
+    ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+}
+
     }
 
     // Nodes (hollow)
