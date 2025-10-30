@@ -11,12 +11,12 @@
     font-family:"Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif; }
   a { color:var(--fg); text-decoration:underline; }
   .wrap { display:grid; grid-template-rows:auto 1fr; height:100%; }
-  header { padding:12px 16px; border-bottom:1px solid #222; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header { padding:12px 16px; border-bottom:1px solid #222; display:flex; align-items:center; gap:14px; flex-wrap:wrap; position: sticky; top: 0; z-index: 1000; background: #000; }
   header h1 { font-size:16px; margin:0; letter-spacing:.2px; font-weight:600; }
   header .controls { display:flex; align-items:center; gap:12px; flex-wrap:wrap; color:var(--muted); }
   label { font-size:12px; } input[type="range"]{ width:180px; }
   .hint { font-size:12px; color:var(--muted); }
-  #graph { position:relative; width:100%; height:calc(100vh - 60px); }
+  #graph { position:relative; width:100%; height:calc(100vh - 60px); overflow: hidden; touch-action: none; }
   canvas { display:block; width:100%; height:100%; background:#000; }
   .tooltip { position:fixed; pointer-events:none; background:#000; color:#fff; padding:6px 8px; border:1px solid #333; border-radius:8px; font-size:12px; white-space:nowrap; transform:translate(-50%,-140%); display:none; z-index: 999999;}
   .legend { position:absolute; left:12px; bottom:12px; font-size:12px; color:var(--muted); }
@@ -53,7 +53,14 @@
   const errEl = document.getElementById('error');
   const minCountInput = document.getElementById('minCount');
   const minCountLabel = document.getElementById('minCountLabel');
+  const graphEl = document.getElementById('graph');
 
+// Trap wheel / touchmove so the page doesn't scroll when interacting with the graph
+  ['wheel','touchmove'].forEach(evt => {
+    graphEl.addEventListener(evt, e => e.preventDefault(), { passive: false });
+  });
+
+  
   function setStatus(s){ statusEl.textContent = s; }
   window.addEventListener('error', e => { errEl.textContent = String(e.error || e.message || e); });
 
