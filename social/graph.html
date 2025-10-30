@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Social Graph — Blog (since 2025-09-22)</title>
+  <link rel="stylesheet" href="social-graph.css" />
+  <!-- D3 from CDN -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+  <main id="app">
+    <header>
+      <h1>Blog Social Graph (since 2025-09-22)</h1>
+      <div class="controls">
+        <label>
+          Minimum mentions:
+          <input id="minMentions" type="range" min="1" max="20" value="2"/>
+          <span id="minMentionsVal">2</span>
+        </label>
+        <label>
+          Decay per day:
+          <input id="decay" type="number" step="0.001" min="0" max="0.05" value="0.01"/>
+          <span>points/day</span>
+        </label>
+        <button id="rebuild">Rebuild Graph</button>
+        <a id="download" href="#" download="graph.json">Download graph JSON</a>
+      </div>
+    </header>
+
+    <section id="visual">
+      <svg id="canvas" width="1000" height="700" aria-label="Social graph visualization"></svg>
+    </section>
+
+    <section id="legend">
+      <p>Nodes are twitter handles. Click a handle to open the profile. Edges are co-occurrence strength (shorter = stronger).</p>
+    </section>
+  </main>
+
+  <script>
+  // Config
+  const POSTS_JSON = 'posts.json'; // must exist in repo/build output
+  const START_DATE = new Date('2025-09-22T00:00:00Z');
+
+  // UI elements
+  const minMentionsInput = document.getElementById('minMentions');
+  const minMentionsVal = document.getElementById('minMentionsVal');
+  const decayInput = document.getElementById('decay');
+  const rebuildBtn = document.getElementById('rebuild');
+  const downloadLink = document.getElementById('download');
+
+  minMentionsInput.addEventListener('input', () => minMentionsVal.textContent = minMentionsInput.value);
+
+  rebuildBtn.addEventListener('click', () => buildAndRenderGraph());
+
+  async function fetchPosts() {
+    const res = await fetch(POSTS_JSON, {cache: 'no-cache'});
+    if (!res.ok) throw new Error('Could not load posts.json: ' + res.status);
+    return res.json();
+  }
+
+  function daysBetween(dateA, dateB) {
+    const msPerDay = 1000 * 60 * 60 * 24;
+    return Math.floor((dateA - dateB) / msPerDay);
+  }
+
+  function buildGraphFromPosts(posts, minMentions, decayPerDay) {
+    // posts: [{id, date: ISOstring, handles: ["matt","connor", ...], ...}]
+    // 1) filter since START_DATE
+    const sincePosts = posts.filter(p => {
+      const d = new Date(p.date);
+      return d >= START_DATE;
+    });
+
+    // mention counts
+    const mentions = {}; // handle -> raw count
+    // co-occurrence raw scores (accumulate decayed points)
+    const co = {}; // key "a||b" (sorted) -> score
+
+    const today = new Date();
+
+    for (const p of sincePosts) {
+      const d = new Date(p.date);
+      const daysAgo = daysBetween(today, d);
+      const decayFactor = Math.max(0, 1 - decayPerDay * daysAgo); // if negative -> 0
+
+      // Normalize handles: remove @, lowercase, trim
+      const handles = Array.from(new Set((p.handles || []).map(h => h.replace(/^@/, '').trim().toLowerCase()).filter(Boolean)));
+      if (handles.length === 0) continue;
+
+      // each handle gets +1 mention (un-decayed)
+      for (const h of handles) {
+        mentions[h] = (mentions[h] || 0) + 1;
+      }
+
+      // for each pair, add decayed point
+      for (let i = 0; i < handles.length; i++) {
+        for (let j = i + 1; j < handles.length; j++) {
+          const a = handles[i], b = handles[j];
+          const key = a < b ? `${a}||${b}` : `${b}||${a}`;
+          co[key] = (co[key] || 0) + decayFactor;
+        }
+      }
+    }
+
+    // filter nodes by minMentions
+    const nodes = Object.keys(mentions).filter(h => mentions[h] >= minMentions).map(h => ({ id: h, mentions: mentions[h] }));
+
+    const nodeSet = new Set(nodes.map(n => n.id));
+
+    // build edges from co where both nodes pass threshold and score > 0
+    const links = [];
+    for (const key of Object.keys(co)) {
+      const [a,b] = key.split('||');
+      if (!nodeSet.has(a) || !nodeSet.has(b)) continue;
+      const score = co[key];
+      if (score <= 0) continue;
+      links.push({ source: a, target: b, score });
+    }
+
+    // produce graph JSON
+    const graph = { nodes, links };
+    return graph;
+  }
+
+  // D3 render
+  function renderGraph(graph) {
+    const svg = d3.select('#canvas');
+    svg.selectAll('*').remove();
+    const width = +svg.attr('width');
+    const height = +svg.attr('height');
+
+    // map score to link distance and width
+    // higher score => shorter distance. We'll invert score to compute distance.
+    const scores = graph.links.map(l => l.score);
+    const maxScore = scores.length ? Math.max(...scores) : 1;
+    const minScore = scores.length ? Math.min(...scores) : 0;
+
+    // helpers
+    const linkDistanceScale = d3.scaleLinear()
+      .domain([minScore, maxScore])
+      .range([220, 40]); // lower distance for higher score
+    const linkWidthScale = d3.scaleLinear()
+      .domain([minScore, maxScore])
+      .range([1, 6]);
+
+    const simulation = d3.forceSimulation(graph.nodes)
+      .force('link', d3.forceLink(graph.links).id(d => d.id).distance(d => linkDistanceScale(d.score)).strength(d => Math.min(1, d.score / Math.max(0.1, maxScore))))
+      .force('charge', d3.forceManyBody().strength(-250))
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('collide', d3.forceCollide(20));
+
+    // links
+    const link = svg.append('g')
+      .attr('stroke', 'rgba(255,255,255,0.6)')
+      .attr('stroke-width', d => Math.max(1, linkWidthScale(d.score)))
+      .selectAll('line')
+      .data(graph.links)
+      .join('line');
+
+    // nodes
+    const node = svg.append('g')
+      .selectAll('g')
+      .data(graph.nodes)
+      .join('g')
+      .call(drag(simulation));
+
+    node.append('circle')
+      .attr('r', 8)
+      .attr('fill', '#fff')
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 1.0);
+
+    // labels as links to twitter
+    node.append('a')
+      .attr('xlink:href', d => `https://twitter.com/${d.id}`)
+      .attr('target', '_blank')
+      .append('text')
+      .text(d => `@${d.id}`)
+      .attr('x', 12)
+      .attr('y', 4)
+      .attr('fill', '#fff')
+      .attr('font-family', '"Helvetica Neue", Helvetica, Arial, sans-serif')
+      .attr('font-size', 13)
+      .style('cursor', 'pointer');
+
+    node.append('title').text(d => `${d.id}\nmentions: ${d.mentions}`);
+
+    simulation.on('tick', () => {
+      link
+        .attr('x1', d => d.source.x)
+        .attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x)
+        .attr('y2', d => d.target.y);
+
+      node
+        .attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+
+    // export link
+    downloadLink.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(graph, null, 2));
+  }
+
+  function drag(simulation) {
+    function dragstarted(event, d) {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      d.fx = d.x;
+      d.fy = d.y;
+    }
+    function dragged(event, d) {
+      d.fx = event.x;
+      d.fy = event.y;
+    }
+    function dragended(event, d) {
+      if (!event.active) simulation.alphaTarget(0);
+      d.fx = null;
+      d.fy = null;
+    }
+    return d3.drag()
+      .on('start', dragstarted)
+      .on('drag', dragged)
+      .on('end', dragended);
+  }
+
+  // Main pipeline
+  async function buildAndRenderGraph() {
+    try {
+      const posts = await fetchPosts();
+      const minMentions = parseInt(minMentionsInput.value, 10);
+      const decayPerDay = parseFloat(decayInput.value);
+      const graph = buildGraphFromPosts(posts, minMentions, decayPerDay);
+      renderGraph(graph);
+    } catch (err) {
+      console.error(err);
+      alert('Error building graph: ' + err.message);
+    }
+  }
+
+  // Initial build
+  buildAndRenderGraph();
+
+  </script>
+</body>
+</html>
