@@ -132,30 +132,69 @@
     setStatus(`parsed ${posts.length} posts since 2025-09-22`);
   }
 
-  function buildGraph(minMentions=1) {
-    const mentionCounts = new Map();
-    rawPosts.forEach(p => p.handles.forEach(h => mentionCounts.set(h, (mentionCounts.get(h)||0)+1)));
-    const eligible = new Set([...mentionCounts.entries()].filter(([,c])=>c>=minMentions).map(([h])=>h));
+  function buildGraph(minMentions = 1) {
+  // 1) Raw mention counts for filtering (no decay)
+  const rawMentionCounts = new Map();
 
-    const linkKey = (a,b)=>a<b?`${a}|${b}`:`${b}|${a}`;
-    const linksMap = new Map();
+  // 2) Decayed mention totals for normalization
+  const decayedMentions = new Map();
 
-    rawPosts.forEach(p => {
-      const hs = [...p.handles].filter(h => eligible.has(h));
-      if (hs.length < 2) return;
-      const w = Math.max(0, 1 - 0.01*daysAgo(p.date));
-      for (let i=0;i<hs.length;i++) for (let j=i+1;j<hs.length;j++) {
-        const a=hs[i], b=hs[j], key=linkKey(a,b);
-        const prev = linksMap.get(key) || { source:a, target:b, value:0, count:0 };
-        prev.value += w; prev.count += 1; linksMap.set(key, prev);
+  // 3) Decayed co-mentions
+  const linkKey = (a,b) => a < b ? `${a}|${b}` : `${b}|${a}`;
+  const linksMap = new Map();
+
+  for (const p of rawPosts) {
+    const hs = [...p.handles];
+    // weight by recency
+    const w = Math.max(0, 1 - 0.01 * daysAgo(p.date));
+
+    // update raw + decayed per-handle tallies
+    for (const h of hs) {
+      rawMentionCounts.set(h, (rawMentionCounts.get(h) || 0) + 1);
+      decayedMentions.set(h, (decayedMentions.get(h) || 0) + w);
+    }
+
+    // decayed co-mentions
+    if (hs.length >= 2) {
+      for (let i = 0; i < hs.length; i++) {
+        for (let j = i + 1; j < hs.length; j++) {
+          const a = hs[i], b = hs[j];
+          const key = linkKey(a, b);
+          const prev = linksMap.get(key) || { source: a, target: b, co: 0 };
+          prev.co += w; // accumulate decayed co-mentions
+          linksMap.set(key, prev);
+        }
       }
-    });
-
-    return {
-      nodes: [...eligible].map(h=>({ id:h, handle:h, mentions: mentionCounts.get(h)||0 })),
-      links: [...linksMap.values()]
-    };
+    }
   }
+
+  // 4) Eligible nodes by raw count (UI-friendly)
+  const eligible = new Set(
+    [...rawMentionCounts.entries()]
+      .filter(([, c]) => c >= minMentions)
+      .map(([h]) => h)
+  );
+
+  // 5) Build normalized links using closeness = co / (decayedA + decayedB)
+  const links = [];
+  for (const { source, target, co } of linksMap.values()) {
+    if (!eligible.has(source) || !eligible.has(target)) continue;
+    const denom = (decayedMentions.get(source) || 0) + (decayedMentions.get(target) || 0);
+    if (denom <= 0) continue;
+    const value = co / denom; // normalized closeness in (0, 0.5]
+    if (value > 0) links.push({ source, target, value });
+  }
+
+  // 6) Nodes carry raw mentions (for size/tooltip), but keep both if you want later
+  const nodes = [...eligible].map(h => ({
+    id: h,
+    handle: h,
+    mentions: rawMentionCounts.get(h) || 0,
+    _decayed: decayedMentions.get(h) || 0 // not displayed; handy if needed
+  }));
+
+  return { nodes, links };
+}
 
   // ===== Layout + interactions (vanilla) =====
   // Zoom/pan
