@@ -29,7 +29,7 @@
     <h1>quasimatt.com social graph</h1>
     <div class="controls">
       <label>min mentions: <span id="minCountLabel">1</span>
-        <input id="minCount" type="range" min="1" max="10" value="1" step="1" />
+        <input id="minCount" type="range" min="1" max="10" value="3" step="1" />
       </label>
       <label>since: <strong>2025-09-22</strong></label>
       <span class="hint">(zoom: scroll, pan: drag. click labels to open X.)</span>
@@ -205,6 +205,90 @@
 }
 
   // ===== Layout + interactions (vanilla) =====
+  // --- Touch (mobile) gestures: 1-finger pan, 2-finger pinch zoom ---
+const graphEl = document.getElementById('graph');
+
+let touchState = {
+  mode: 'none',             // 'none' | 'pan' | 'pinch'
+  lastX: 0, lastY: 0,       // for pan
+  startZoom: 1,             // for pinch
+  startDist: 1,             // for pinch
+  anchorWorld: {x:0,y:0},   // world point under the pinch midpoint at gesture start
+};
+
+function touchDistance(t1, t2) {
+  const dx = t2.clientX - t1.clientX;
+  const dy = t2.clientY - t1.clientY;
+  return Math.hypot(dx, dy);
+}
+
+function touchMidpoint(t1, t2) {
+  return { x: (t1.clientX + t2.clientX)/2, y: (t1.clientY + t2.clientY)/2 };
+}
+
+graphEl.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) {
+    // Start pan
+    touchState.mode = 'pan';
+    touchState.lastX = e.touches[0].clientX;
+    touchState.lastY = e.touches[0].clientY;
+  } else if (e.touches.length === 2) {
+    // Start pinch
+    const [t1, t2] = e.touches;
+    touchState.mode = 'pinch';
+    touchState.startDist = touchDistance(t1, t2);
+    touchState.startZoom = zoom;
+
+    const mid = touchMidpoint(t1, t2);
+    // world point under fingers at start (like wheel-zoom focal point)
+    const rect = canvas.getBoundingClientRect();
+    const sx = mid.x - rect.left, sy = mid.y - rect.top;
+    touchState.anchorWorld = { x: (sx - offsetX)/zoom, y: (sy - offsetY)/zoom };
+  }
+  e.preventDefault();
+}, { passive: false });
+
+graphEl.addEventListener('touchmove', (e) => {
+  if (touchState.mode === 'pan' && e.touches.length === 1) {
+    const nx = e.touches[0].clientX, ny = e.touches[0].clientY;
+    offsetX += (nx - touchState.lastX);
+    offsetY += (ny - touchState.lastY);
+    touchState.lastX = nx; touchState.lastY = ny;
+    render();
+  } else if (touchState.mode === 'pinch' && e.touches.length === 2) {
+    const [t1, t2] = e.touches;
+    const dist = touchDistance(t1, t2);
+    const rect = canvas.getBoundingClientRect();
+    const mid = touchMidpoint(t1, t2);
+    const sx = mid.x - rect.left, sy = mid.y - rect.top;
+
+    // scale from start
+    const newZoom = Math.max(0.25, Math.min(6, touchState.startZoom * (dist / touchState.startDist)));
+
+    // keep the anchor world point under the same screen point
+    const beforeWorld = touchState.anchorWorld; // fixed world point
+    // after zoom, offset must be adjusted:
+    offsetX = sx - beforeWorld.x * newZoom;
+    offsetY = sy - beforeWorld.y * newZoom;
+
+    zoom = newZoom;
+    render();
+  }
+  e.preventDefault();
+}, { passive: false });
+
+graphEl.addEventListener('touchend', (e) => {
+  if (e.touches.length === 0) {
+    touchState.mode = 'none';
+  } else if (e.touches.length === 1) {
+    // If a pinch ended and one finger remains, switch to pan
+    touchState.mode = 'pan';
+    touchState.lastX = e.touches[0].clientX;
+    touchState.lastY = e.touches[0].clientY;
+  }
+  e.preventDefault();
+}, { passive: false });
+
   // Zoom/pan
   let zoom = 1, offsetX = 0, offsetY = 0;
   function screenToWorld(x,y){ return { x:(x - offsetX)/zoom, y:(y - offsetY)/zoom }; }
