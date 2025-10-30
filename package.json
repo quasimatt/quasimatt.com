@@ -1,0 +1,11 @@
+{
+  "name": "quasimatt-com",
+  "version": "1.0.0",
+  "description": "quasimatt.com website with social graph visualization",
+  "scripts": {
+    "generate-posts": "node scripts/generate-posts.js"
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3"
+  }
+}

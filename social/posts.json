@@ -1,0 +1,57 @@
+[
+  {
+    "id": "sample1",
+    "path": "social/index.html",
+    "date": "2025-10-29T00:00:00.000Z",
+    "title": "sample post 1",
+    "handles": [
+      "@conejocapital",
+      "@wesamo__",
+      "@jacobarluck"
+    ]
+  },
+  {
+    "id": "sample2",
+    "path": "social/index.html",
+    "date": "2025-10-28T00:00:00.000Z",
+    "title": "sample post 2",
+    "handles": [
+      "@colludingnode",
+      "@conejocapital"
+    ]
+  },
+  {
+    "id": "sample3",
+    "path": "social/index.html",
+    "date": "2025-10-27T00:00:00.000Z",
+    "title": "sample post 3",
+    "handles": [
+      "@colludingnode",
+      "@conejocapital",
+      "@kitvolta",
+      "@luoser"
+    ]
+  },
+  {
+    "id": "sample4",
+    "path": "social/index.html",
+    "date": "2025-10-26T00:00:00.000Z",
+    "title": "sample post 4",
+    "handles": [
+      "@conejocapital",
+      "@poolnoodle93"
+    ]
+  },
+  {
+    "id": "sample5",
+    "path": "social/index.html",
+    "date": "2025-10-25T00:00:00.000Z",
+    "title": "sample post 5",
+    "handles": [
+      "@__mihir",
+      "@afflictedgirl",
+      "@f4eth",
+      "@_casscore"
+    ]
+  }
+]
