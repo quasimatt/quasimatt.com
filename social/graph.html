@@ -1,28 +1,34 @@
 <script>
 (function () {
-  // --- Config ---
+  // ---- Minimal status + hard guards ----
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const statusEl = document.getElementById('status');
+  const errEl = document.getElementById('error');
+  const mm = (m)=> statusEl.textContent = m;
+
+  // Show any runtime errors in red
+  window.addEventListener('error', e => {
+    errEl.textContent = String(e.error || e.message || e);
+  });
+
+  // If we ever get here, JS at least started:
+  mm('boot…');
+
+  // ---- Config ----
   const SOCIAL_URL = '/social';
   const CUTOFF_ISO = '2025-09-22';
   const TW_HOSTS = new Set(['twitter.com','x.com','mobile.twitter.com']);
 
-  // DOM
-  const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d');
-  const tooltip = document.getElementById('tooltip');
-  const statusEl = document.getElementById('status');
-  const errEl = document.getElementById('error');
-  const minCountInput = document.getElementById('minCount');
-  const minCountLabel = document.getElementById('minCountLabel');
+  // Zoom/pan
+  let zoomTransform = d3 && d3.zoomIdentity ? d3.zoomIdentity : {x:0,y:0,k:1};
+  function project(x,y){ return [zoomTransform.x + x*zoomTransform.k, zoomTransform.y + y*zoomTransform.k]; }
+  function unproject(x,y){
+    const k = zoomTransform.k || 1;
+    return [(x - zoomTransform.x)/k, (y - zoomTransform.y)/k];
+  }
 
-  // error surfacing
-  window.addEventListener('error', e => errEl.textContent = String(e.error || e.message || e));
-
-  // zoom/pan
-  let zoomTransform = d3.zoomIdentity;
-  function project(x,y){ return [zoomTransform.applyX(x), zoomTransform.applyY(y)]; }
-  function unproject(x,y){ return [zoomTransform.invertX(x), zoomTransform.invertY(y)]; }
-
-  // retina canvas
+  // Retina canvas
   function fitCanvas() {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     const { clientWidth:w, clientHeight:h } = canvas.parentElement;
@@ -35,12 +41,14 @@
   window.addEventListener('resize', () => { fitCanvas(); render(); });
 
   // UI
+  const minCountInput = document.getElementById('minCount');
+  const minCountLabel = document.getElementById('minCountLabel');
   minCountInput.addEventListener('input', () => {
     minCountLabel.textContent = minCountInput.value;
     recomputeAndRender();
   });
 
-  // --- Helpers ---
+  // ---- Helpers ----
   function parseDateFromDataDate(val) {
     if (!val) return null;
     const s = String(val).trim();
@@ -75,11 +83,15 @@
     } catch { return null; }
   }
 
-  // --- Fetch & parse /social ---
-  let rawPosts = []; // [{date, handles:Set}]
+  // ---- Data ----
+  let rawPosts = [];           // [{date, handles:Set}]
+  let graph = { nodes:[], links:[] };
+  let sim = null;
+  const labels = new Map();
 
+  // Fetch & parse /social
   async function loadSocial() {
-    statusEl.textContent = 'Loading /social…';
+    mm('fetching /social…');
     const res = await fetch(SOCIAL_URL, { credentials: 'same-origin' });
     if (!res.ok) throw new Error('Failed to fetch /social');
     const html = await res.text();
@@ -87,7 +99,7 @@
 
     const cutoff = getCutoffDate();
     const nodes = Array.from(doc.querySelectorAll('p[data-type="social"][data-date]'));
-    statusEl.textContent = `Found ${nodes.length} social nodes`;
+    mm(`found ${nodes.length} social nodes`);
 
     const posts = [];
     nodes.forEach(el => {
@@ -104,10 +116,10 @@
 
     posts.sort((a,b) => a.date - b.date);
     rawPosts = posts;
-    statusEl.textContent = `Parsed ${posts.length} posts since 2025-09-22.`;
+    mm(`parsed ${posts.length} posts since 2025-09-22`);
   }
 
-  // --- Build graph ---
+  // Build graph
   function buildGraph(minMentions=1) {
     const mentionCounts = new Map();
     rawPosts.forEach(p => p.handles.forEach(h => mentionCounts.set(h, (mentionCounts.get(h)||0)+1)));
@@ -137,11 +149,7 @@
     return { nodes, links, mentionCounts };
   }
 
-  // --- Layout + render ---
-  let sim = null;
-  let graph = { nodes:[], links:[] };
-  const labels = new Map();
-
+  // Distances
   let VMIN = 0, VMAX = 1;
   function updateLinkStats() {
     const vals = graph.links.map(l => l.value || 0);
@@ -150,7 +158,6 @@
     VMAX = Math.max(...vals);
     if (VMAX === VMIN) VMAX = VMIN + 1;
   }
-
   function nodeRadius(n) { return 4 + Math.min(14, n.mentions * 1.2); }
   function linkWidth(_) { return 0.4; }
   function linkDistance(l) {
@@ -163,6 +170,7 @@
     return dMax - t * (dMax - dMin); // stronger → shorter
   }
 
+  // Labels
   function clearLabels(){ labels.forEach(el => el.remove()); labels.clear(); }
   function placeLabel(node) {
     let el = labels.get(node.id);
@@ -184,17 +192,24 @@
     const r = nodeRadius(node);
     const rect = el.getBoundingClientRect();
     el.style.left = (sx - rect.width/2) + 'px';
-    el.style.top  = (sy - (r * zoomTransform.k) - rect.height - 4) + 'px';
+    el.style.top  = (sy - (r * (zoomTransform.k||1)) - rect.height - 4) + 'px';
   }
 
+  // Render (always paints a black background first so you never see white)
   function render() {
     const { clientWidth:w, clientHeight:h } = canvas;
-    ctx.clearRect(0, 0, w, h);
+    // black background safety
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0,0,w,h);
+    ctx.restore();
+
     if (!graph.nodes.length) { clearLabels(); return; }
 
     ctx.save();
-    ctx.translate(zoomTransform.x, zoomTransform.y);
-    ctx.scale(zoomTransform.k, zoomTransform.k);
+    ctx.translate(zoomTransform.x||0, zoomTransform.y||0);
+    ctx.scale(zoomTransform.k||1, zoomTransform.k||1);
 
     // edges
     ctx.globalAlpha = 0.9;
@@ -211,7 +226,7 @@
     graph.nodes.forEach(n => {
       ctx.beginPath();
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.2 / Math.max(1, zoomTransform.k * 0.9);
+      ctx.lineWidth = 1.2 / Math.max(1, (zoomTransform.k||1) * 0.9);
       ctx.arc(n.x, n.y, nodeRadius(n), 0, Math.PI * 2);
       ctx.stroke();
     });
@@ -220,13 +235,15 @@
     graph.nodes.forEach(n => placeLabel(n));
   }
 
+  // Start simulation
   function startSim() {
+    if (!window.d3 || !d3.forceSimulation) throw new Error('D3 failed to load');
     if (sim) sim.stop();
 
     const w = canvas.parentElement.clientWidth;
     const h = canvas.parentElement.clientHeight;
 
-    // seed on jittered grid for spread
+    // seed grid
     graph.nodes.forEach((n, i) => {
       if (typeof n.x !== 'number' || typeof n.y !== 'number') {
         const cols = Math.ceil(Math.sqrt(graph.nodes.length));
@@ -252,23 +269,22 @@
       .on('tick', render);
   }
 
-  // hover
-  function hitTestNode(mx, my) {
-    for (let i = graph.nodes.length - 1; i >= 0; i--) {
-      const n = graph.nodes[i];
-      const r = nodeRadius(n);
-      const dx = mx - n.x, dy = my - n.y;
-      if (dx*dx + dy*dy <= r*r) return n;
-    }
-    return null;
-  }
+  // Hover
+  const tooltip = document.getElementById('tooltip');
   canvas.addEventListener('mousemove', (e) => {
     const rect = canvas.getBoundingClientRect();
     const [ux, uy] = unproject(e.clientX - rect.left, e.clientY - rect.top);
-    const node = hitTestNode(ux, uy);
-    if (node) {
+    const hit = (() => {
+      for (let i = graph.nodes.length - 1; i >= 0; i--) {
+        const n = graph.nodes[i], r = nodeRadius(n);
+        const dx = ux - n.x, dy = uy - n.y;
+        if (dx*dx + dy*dy <= r*r) return n;
+      }
+      return null;
+    })();
+    if (hit) {
       tooltip.style.display = 'block';
-      tooltip.textContent = `@${node.handle} — mentions: ${node.mentions}`;
+      tooltip.textContent = `@${hit.handle} — mentions: ${hit.mentions}`;
       tooltip.style.left = e.clientX + 'px';
       tooltip.style.top  = e.clientY + 'px';
     } else {
@@ -276,26 +292,36 @@
     }
   });
 
-  // recompute
+  // Recompute
   function recomputeAndRender() {
     const minMentions = parseInt(minCountInput.value, 10) || 1;
     graph = buildGraph(minMentions);
     clearLabels();
     fitCanvas();
     updateLinkStats();
-    startSim();
+    // If graph empty, still render black bg so it’s never white
+    render();
+    if (graph.nodes.length) startSim();
   }
 
-  // init
+  // Init
   (async function init() {
     try {
       fitCanvas();
-      d3.select(canvas)
-        .call(d3.zoom()
-          .scaleExtent([0.25, 6])
-          .on('zoom', (event) => { zoomTransform = event.transform; render(); })
-        )
-        .on('dblclick.zoom', null);
+      // Zoom only if d3 is present
+      if (window.d3 && d3.zoom) {
+        d3.select(canvas)
+          .call(d3.zoom()
+            .scaleExtent([0.25, 6])
+            .on('zoom', (event) => { zoomTransform = event.transform; render(); })
+          )
+          .on('dblclick.zoom', null);
+      } else {
+        mm('warning: d3 not loaded; zoom disabled');
+      }
+
+      // Paint black immediately so you never see white
+      render();
 
       await loadSocial();
       recomputeAndRender();
@@ -306,4 +332,3 @@
   })();
 })();
 </script>
-
