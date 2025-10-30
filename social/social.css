@@ -1,0 +1,167 @@
+/* social.css - Styles for social graph visualization */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #000;
+  color: #fff;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 20px;
+}
+
+a {
+  color: #fff;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+header {
+  margin-bottom: 30px;
+}
+
+header h1 {
+  font-size: 24px;
+  font-weight: normal;
+  text-transform: lowercase;
+}
+
+.controls {
+  margin-bottom: 20px;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  text-transform: lowercase;
+}
+
+.controls input[type="number"] {
+  background-color: #1a1a1a;
+  color: #fff;
+  border: 1px solid #333;
+  padding: 6px 10px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  width: 80px;
+}
+
+.controls input[type="number"]:focus {
+  outline: none;
+  border-color: #666;
+}
+
+.controls button {
+  background-color: #1a1a1a;
+  color: #fff;
+  border: 1px solid #333;
+  padding: 6px 16px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  text-transform: lowercase;
+}
+
+.controls button:hover {
+  background-color: #2a2a2a;
+  border-color: #666;
+}
+
+.controls button:active {
+  background-color: #333;
+}
+
+#graph {
+  background-color: #000;
+  border: 1px solid #333;
+  min-height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+#graph svg {
+  display: block;
+}
+
+.info {
+  color: #999;
+  font-size: 12px;
+  text-transform: lowercase;
+}
+
+.info p {
+  margin: 5px 0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  body {
+    padding: 10px;
+  }
+
+  header h1 {
+    font-size: 20px;
+  }
+
+  .controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .controls label {
+    width: 100%;
+  }
+
+  .controls input[type="number"] {
+    width: 100px;
+  }
+
+  #graph {
+    min-height: 400px;
+  }
+}
+
+@media (max-width: 480px) {
+  header h1 {
+    font-size: 18px;
+  }
+
+  .controls {
+    font-size: 12px;
+  }
+
+  .controls input[type="number"],
+  .controls button {
+    font-size: 12px;
+  }
+
+  #graph {
+    min-height: 300px;
+  }
+
+  .info {
+    font-size: 11px;
+  }
+}
