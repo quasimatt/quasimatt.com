@@ -43,8 +43,8 @@
       <h1>Quasi Social Graph</h1>
       <div class="controls">
         <label>
-          Min mentions: <span id="minCountLabel">2</span>
-          <input id="minCount" type="range" min="1" max="10" value="2" step="1" />
+          Min mentions: <span id="minCountLabel">1</span>
+          <input id="minCount" type="range" min="1" max="10" value="1" step="1" />
         </label>
         <label>
           Since: <strong>2025‑09‑22</strong>
@@ -145,14 +145,10 @@
     } catch { return null; }
   }
 
-  // --- Fetch & parse the social page ---
-  let rawPosts = []; // [{date: Date, handles: Set<string> }]
-  <script>
-// --- add this helper ---
+  // helper: parse MMDDYY or MMDDYYYY from data-date
 function parseDateFromDataDate(val) {
   if (!val) return null;
   const s = String(val).trim();
-  // MMDDYY  -> assume 20YY
   if (/^\d{6}$/.test(s)) {
     const mm = Number(s.slice(0,2));
     const dd = Number(s.slice(2,4));
@@ -161,7 +157,6 @@ function parseDateFromDataDate(val) {
     const d = new Date(yyyy, mm-1, dd);
     return isNaN(d) ? null : d;
   }
-  // MMDDYYYY
   if (/^\d{8}$/.test(s)) {
     const mm = Number(s.slice(0,2));
     const dd = Number(s.slice(2,4));
@@ -171,7 +166,9 @@ function parseDateFromDataDate(val) {
   }
   return null;
 }
-</script>
+
+// --- Fetch & parse the social page ---
+  let rawPosts = []; // [{date: Date, handles: Set<string> }]
 
   async function loadSocial() {
     statusEl.textContent = 'Loading /social…';
@@ -189,6 +186,7 @@ function parseDateFromDataDate(val) {
       nodes = Array.from(doc.querySelectorAll('p, article, .post, .entry'));
     }
 
+    statusEl.textContent = `Found ${nodes.length} social nodes`;
     const posts = [];
     nodes.forEach(el => {
       // 1) Date via data-date (MMDDYY or MMDDYYYY)
@@ -407,4 +405,5 @@ function parseDateFromDataDate(val) {
 </script>
 </body>
 </html>
+
 
