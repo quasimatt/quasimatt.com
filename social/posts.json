@@ -1,0 +1,23 @@
+[
+  {
+    "id": "post1",
+    "path": "social/index.html",
+    "date": "2025-09-22",
+    "title": "Initial social page",
+    "handles": ["conejocapital", "wesamo__", "colludingnode"]
+  },
+  {
+    "id": "post2",
+    "path": "blog/index.html",
+    "date": "2025-10-01",
+    "title": "Meeting friends",
+    "handles": ["arbitragegoth", "conejocapital", "jacobarluck"]
+  },
+  {
+    "id": "post3",
+    "path": "about/index.html",
+    "date": "2025-10-15",
+    "title": "Coffee meetup",
+    "handles": ["colludingnode", "conejocapital", "wesamo__", "jacobarluck"]
+  }
+]
