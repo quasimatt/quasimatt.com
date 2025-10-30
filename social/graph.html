@@ -261,6 +261,19 @@ function parseDateFromDataDate(val) {
 
   // --- Render (D3 force + Canvas drawing + DOM labels) ---
   let sim = null;
+  // Stats for link value scaling → distances/strengths
+  let VMIN = 0, VMAX = 1;
+  function updateLinkStats() {
+    const vals = graph.links.map(l => l.value || 0);
+    if (vals.length) {
+      VMIN = Math.min(...vals);
+      VMAX = Math.max(...vals);
+      if (!isFinite(VMIN)) VMIN = 0;
+      if (!isFinite(VMAX) || VMAX === VMIN) VMAX = VMIN + 1; // avoid 0 span
+    } else {
+      VMIN = 0; VMAX = 1;
+    }
+  }
   let graph = { nodes:[], links:[] };
   const labels = new Map();
 
@@ -301,13 +314,19 @@ function parseDateFromDataDate(val) {
   }
 
   function linkWidth(l) {
-    return Math.min(6, 0.6 + l.value * 0.8);
+    // Make edges very thin; encode strength via distance only
+    return 0.4;
   }
 
   function linkDistance(l) {
-    // Shorter distance for higher weights
-    // base 140, shrink by factor with diminishing returns
-    return Math.max(24, 140 / (1 + l.value));
+    // Map higher score → shorter distance; normalize per current graph
+    const w = canvas.parentElement.clientWidth;
+    const h = canvas.parentElement.clientHeight;
+    const dMin = 26; // tightest springs for strongest ties
+    const dMax = Math.max(140, 0.55 * Math.min(w, h)); // weakest ties stretch out
+    const v = (l.value || 0);
+    const t = (v - VMIN) / (VMAX - VMIN); // 0..1
+    return dMax - t * (dMax - dMin);
   }
 
   function render() {
@@ -334,10 +353,10 @@ function parseDateFromDataDate(val) {
     // Draw nodes
     graph.nodes.forEach(n => {
       ctx.beginPath();
-      ctx.fillStyle = '#ffffff';
-      ctx.moveTo(n.x + nodeRadius(n), n.y);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.2;
       ctx.arc(n.x, n.y, nodeRadius(n), 0, Math.PI * 2);
-      ctx.fill();
+      ctx.stroke();
       placeLabel(n);
     });
 
@@ -347,11 +366,32 @@ function parseDateFromDataDate(val) {
   function startSim() {
     if (sim) sim.stop();
 
+    // Seed initial positions on a jittered grid for better spread
+    const w = canvas.parentElement.clientWidth;
+    const h = canvas.parentElement.clientHeight;
+    graph.nodes.forEach((n, i) => {
+      if (typeof n.x !== 'number' || typeof n.y !== 'number') {
+        const cols = Math.ceil(Math.sqrt(graph.nodes.length));
+        const x = (i % cols) / (cols - 1 || 1);
+        const y = Math.floor(i / cols) / (cols - 1 || 1);
+        n.x = 40 + x * (w - 80) + (Math.random() - 0.5) * 24;
+        n.y = 40 + y * (h - 80) + (Math.random() - 0.5) * 24;
+      }
+    });
+
+    // Update link stats before building forces
+    updateLinkStats();
+
     sim = d3.forceSimulation(graph.nodes)
-      .force('link', d3.forceLink(graph.links).id(d => d.id).distance(linkDistance).strength(0.8))
-      .force('charge', d3.forceManyBody().strength(-180))
-      .force('center', d3.forceCenter(canvas.parentElement.clientWidth/2, canvas.parentElement.clientHeight/2))
-      .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 8).iterations(2))
+      .force('link', d3.forceLink(graph.links)
+        .id(d => d.id)
+        .distance(linkDistance)
+        .strength(l => 0.15 + 0.85 * ((l.value - VMIN) / (VMAX - VMIN)))
+      )
+      .force('charge', d3.forceManyBody().strength(-320))
+      .force('center', d3.forceCenter(w/2, h/2))
+      .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 12).iterations(2))
+      .velocityDecay(0.25)
       .on('tick', render);
   }
 
@@ -382,11 +422,12 @@ function parseDateFromDataDate(val) {
 
   // Recompute graph with new threshold
   function recomputeAndRender() {
-    const minMentions = parseInt(minCountInput.value, 10) || 2;
+    const minMentions = parseInt(minCountInput.value, 10) || 1;
     const g = buildGraph(minMentions);
     graph = g;
     clearLabels();
     fitCanvas();
+    updateLinkStats();
     startSim();
   }
 
@@ -405,6 +446,7 @@ function parseDateFromDataDate(val) {
 </script>
 </body>
 </html>
+
 
 
 
