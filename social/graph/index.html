@@ -202,7 +202,8 @@ showEdgesInput.addEventListener('change', () => {
     if (!eligible.has(source) || !eligible.has(target)) continue;
     const denom = (decayedMentions.get(source) || 0) + (decayedMentions.get(target) || 0);
     if (denom <= 0) continue;
-    const value = co / denom; // normalized closeness in (0, 0.5]
+    const denom = Math.min(decayedMentions.get(source) || 0, decayedMentions.get(target) || 0);
+    const value = denom > 0 ? co / denom : 0; // overlap-style closeness
     if (value > 0) links.push({ source, target, value });
   }
 
