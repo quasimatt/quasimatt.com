@@ -27,7 +27,7 @@
   <header>
     <h1>quasimatt.com social graph</h1>
     <div class="controls">
-      <label>min mentions: <span id="minCountLabel">1</span>
+      <label>min mentions: <span id="minCountLabel">3</span>
         <input id="minCount" type="range" min="1" max="10" value="3" step="1" />
       </label>
       <label>
@@ -57,30 +57,25 @@
   const minCountInput = document.getElementById('minCount');
   const minCountLabel = document.getElementById('minCountLabel');
   const graphEl = document.getElementById('graph');
-
-  // Zoom/pan state (declare early so touch listeners capture defined vars)
-  let zoom = 1, offsetX = 0, offsetY = 0;
-
-  // Edges toggle
   const showEdgesInput = document.getElementById('showEdges');
+
+  // ===== State =====
   let showEdges = true;
-  showEdgesInput.addEventListener('change', () => {
-    showEdges = showEdgesInput.checked;
-    render();
-  });
+  let zoom = 1, offsetX = 0, offsetY = 0;
+  let rawPosts = [];
+  let nodes = [], links = [];
+  let animId = null;
 
-  // Trap wheel / touchmove so page doesn't scroll while interacting
-  ['wheel','touchmove'].forEach(evt => {
-    graphEl.addEventListener(evt, e => e.preventDefault(), { passive: false });
-  });
-
+  // ===== Utils =====
   function setStatus(s){ statusEl.textContent = s; }
   window.addEventListener('error', e => { errEl.textContent = String(e.error || e.message || e); });
 
-  // ===== Canvas (retina-safe) =====
+  // Canvas (retina-safe)
   function fitCanvas() {
+    const parent = canvas.parentElement || document.body;
     const dpr = Math.max(1, window.devicePixelRatio || 1);
-    const { clientWidth:w, clientHeight:h } = canvas.parentElement;
+    const w = parent.clientWidth || window.innerWidth;
+    const h = parent.clientHeight || (window.innerHeight - 60);
     canvas.width = Math.floor(w * dpr);
     canvas.height = Math.floor(h * dpr);
     canvas.style.width = w + 'px';
@@ -95,7 +90,6 @@
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
   }
-  window.addEventListener('resize', () => { fitCanvas(); render(); });
 
   // ===== Config & helpers =====
   const SOCIAL_URL = '/social';
@@ -122,10 +116,7 @@
     } catch { return null; }
   }
 
-  // ===== Data =====
-  let rawPosts = [];
-  let graph = { nodes:[], links:[] };
-
+  // ===== Data load =====
   async function loadSocial() {
     setStatus('fetching /social…');
     const res = await fetch(SOCIAL_URL, { credentials:'same-origin' });
@@ -150,17 +141,13 @@
     });
     posts.sort((a,b)=>a.date-b.date);
     rawPosts = posts;
-    setStatus(`parsed ${posts.length} posts since 2025-09-22`);
+    setStatus(`parsed ${posts.length} posts since ${CUTOFF_ISO}`);
   }
 
+  // ===== Graph build =====
   function buildGraph(minMentions = 1) {
-    // Raw counts (for node size + filtering)
     const rawMentionCounts = new Map();
-
-    // Decayed totals (for normalization)
     const decayedMentions = new Map();
-
-    // Decayed co-mentions
     const linkKey = (a,b) => a < b ? `${a}|${b}` : `${b}|${a}`;
     const linksMap = new Map();
 
@@ -186,186 +173,90 @@
       }
     }
 
-    // Eligible nodes by raw count threshold
     const eligible = new Set(
       [...rawMentionCounts.entries()]
         .filter(([, c]) => c >= minMentions)
         .map(([h]) => h)
     );
 
-    // Link strength = co / min(decayedA, decayedB)
-    const links = [];
+    const builtLinks = [];
     for (const { source, target, co } of linksMap.values()) {
       if (!eligible.has(source) || !eligible.has(target)) continue;
       const denom = Math.min(decayedMentions.get(source) || 0, decayedMentions.get(target) || 0);
       if (denom <= 0) continue;
       const value = co / denom; // (0, 1]
-      if (value > 0) links.push({ source, target, value });
+      if (value > 0 && isFinite(value)) builtLinks.push({ source, target, value });
     }
 
-    const nodes = [...eligible].map(h => ({
+    const builtNodes = [...eligible].map(h => ({
       id: h,
       handle: h,
       mentions: rawMentionCounts.get(h) || 0,
-      _decayed: decayedMentions.get(h) || 0
+      _decayed: decayedMentions.get(h) || 0,
+      x: 0, y: 0, vx: 0, vy: 0,
     }));
 
-    return { nodes, links };
+    return { nodes: builtNodes, links: builtLinks };
   }
 
-  // ===== Layout + interactions (vanilla) =====
-  // Touch (mobile): 1-finger pan, 2-finger pinch zoom
-  let touchState = {
-    mode: 'none',
-    lastX: 0, lastY: 0,
-    startZoom: 1,
-    startDist: 1,
-    anchorWorld: {x:0,y:0},
-  };
-
-  function touchDistance(t1, t2) {
-    const dx = t2.clientX - t1.clientX;
-    const dy = t2.clientY - t1.clientY;
-    return Math.hypot(dx, dy);
-  }
-  function touchMidpoint(t1, t2) {
-    return { x: (t1.clientX + t2.clientX)/2, y: (t1.clientY + t2.clientY)/2 };
-  }
-
-  graphEl.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 1) {
-      touchState.mode = 'pan';
-      touchState.lastX = e.touches[0].clientX;
-      touchState.lastY = e.touches[0].clientY;
-    } else if (e.touches.length === 2) {
-      const [t1, t2] = e.touches;
-      touchState.mode = 'pinch';
-      touchState.startDist = touchDistance(t1, t2);
-      touchState.startZoom = zoom;
-
-      const mid = touchMidpoint(t1, t2);
-      const rect = canvas.getBoundingClientRect();
-      const sx = mid.x - rect.left, sy = mid.y - rect.top;
-      touchState.anchorWorld = { x: (sx - offsetX)/zoom, y: (sy - offsetY)/zoom };
-    }
-    e.preventDefault();
-  }, { passive: false });
-
-  graphEl.addEventListener('touchmove', (e) => {
-    if (touchState.mode === 'pan' && e.touches.length === 1) {
-      const nx = e.touches[0].clientX, ny = e.touches[0].clientY;
-      offsetX += (nx - touchState.lastX);
-      offsetY += (ny - touchState.lastY);
-      touchState.lastX = nx; touchState.lastY = ny;
-      render();
-    } else if (touchState.mode === 'pinch' && e.touches.length === 2) {
-      const [t1, t2] = e.touches;
-      const dist = touchDistance(t1, t2);
-      const rect = canvas.getBoundingClientRect();
-      const mid = touchMidpoint(t1, t2);
-      const sx = mid.x - rect.left, sy = mid.y - rect.top;
-
-      const newZoom = Math.max(0.25, Math.min(6, touchState.startZoom * (dist / touchState.startDist)));
-      const beforeWorld = touchState.anchorWorld;
-      offsetX = sx - beforeWorld.x * newZoom;
-      offsetY = sy - beforeWorld.y * newZoom;
-      zoom = newZoom;
-      render();
-    }
-    e.preventDefault();
-  }, { passive: false });
-
-  graphEl.addEventListener('touchend', (e) => {
-    if (e.touches.length === 0) {
-      touchState.mode = 'none';
-    } else if (e.touches.length === 1) {
-      touchState.mode = 'pan';
-      touchState.lastX = e.touches[0].clientX;
-      touchState.lastY = e.touches[0].clientY;
-    }
-    e.preventDefault();
-  }, { passive: false });
-
-  // Mouse zoom/pan
-  function screenToWorld(x,y){ return { x:(x - offsetX)/zoom, y:(y - offsetY)/zoom }; }
-  canvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const scale = Math.exp(-e.deltaY * 0.0015);
-    const rect = canvas.getBoundingClientRect();
-    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
-    const before = screenToWorld(cx, cy);
-    zoom = Math.max(0.25, Math.min(6, zoom * scale));
-    const after = screenToWorld(cx, cy);
-    offsetX += (after.x - before.x) * zoom;
-    offsetY += (after.y - before.y) * zoom;
-    render();
-  }, { passive:false });
-
-  let panning=false, lastX=0, lastY=0;
-  canvas.addEventListener('mousedown', e=>{ panning=true; lastX=e.clientX; lastY=e.clientY; });
-  window.addEventListener('mouseup', ()=>{ panning=false; });
-  window.addEventListener('mousemove', e=>{
-    if (!panning) return;
-    offsetX += (e.clientX - lastX);
-    offsetY += (e.clientY - lastY);
-    lastX = e.clientX; lastY = e.clientY;
-    render();
-  });
-
-  // Force sim state
-  let nodes=[], links=[];
-  let animId = null;
-
+  // ===== Force layout =====
   function layoutGraph() {
-    // Initial jittered grid
-    const W = canvas.parentElement.clientWidth, H = canvas.parentElement.clientHeight;
+    const parent = canvas.parentElement || graphEl;
+    const W = (parent && parent.clientWidth) || window.innerWidth;
+    const H = (parent && parent.clientHeight) || (window.innerHeight - 60);
+
+    // Seed positions on a jitter grid
     nodes.forEach((n,i)=>{
-      const cols = Math.ceil(Math.sqrt(nodes.length));
-      const x = (i % cols) / (cols - 1 || 1);
-      const y = Math.floor(i / cols) / (cols - 1 || 1);
+      const cols = Math.ceil(Math.sqrt(nodes.length || 1));
+      const x = (i % cols) / Math.max(1, cols - 1);
+      const y = Math.floor(i / cols) / Math.max(1, cols - 1);
       n.x = 40 + x*(W-80) + (Math.random()-0.5)*24;
       n.y = 40 + y*(H-80) + (Math.random()-0.5)*24;
       n.vx = 0; n.vy = 0;
     });
 
-    // Link lengths from weights
+    // Link references + natural lengths
     const vals = links.map(l=>l.value||0);
-    let vmin=0, vmax=1; if (vals.length){ vmin=Math.min(...vals); vmax=Math.max(...vals); if (vmax===vmin) vmax=vmin+1; }
+    let vmin=0, vmax=1; 
+    if (vals.length){
+      vmin=Math.min(...vals); vmax=Math.max(...vals);
+      if (vmax===vmin) vmax=vmin+1;
+    }
     links.forEach(l=>{
+      l.a = nodes.find(n=>n.id===l.source);
+      l.b = nodes.find(n=>n.id===l.target);
       const t = ((l.value||0) - vmin) / (vmax - vmin);
       const dMin = 26, dMax = Math.max(140, 0.55*Math.min(W,H));
       l.len = dMax - t*(dMax - dMin);
-      l.a = nodes.find(n=>n.id===l.source);
-      l.b = nodes.find(n=>n.id===l.target);
     });
 
-    // ---- Simulation with node-count scaling + cooling ----
+    // Simulation constants
     let steps = 0;
     const N = Math.max(1, nodes.length);
 
-    const kSpring = 0.011;                 // stronger springs
-    const kRepel  = 1800 / Math.sqrt(N);   // scale repulsion with N
-    const centerK = 0.0012;                // stronger centering
-    const friction = 0.92;                 // more damping
+    const kSpring = 0.011;
+    const kRepel  = 1800 / Math.sqrt(N);
+    const centerK = 0.0012;
+    const friction = 0.92;
 
-    let alpha = 1.0;                       // cooling “temperature”
+    let alpha = 1.0;
     const alphaMin = 0.02;
-    const alphaDecay = 1 - Math.pow(alphaMin, 1/900); // ~900 steps to cool
-
-    const vmax = 2.2;                      // velocity clamp
+    const alphaDecay = 1 - Math.pow(alphaMin, 1/900);
+    const vmax = 2.2;
     const maxSteps = 2000;
 
     function step() {
       steps++;
-      // cool toward alphaMin
       alpha += (alphaMin - alpha) * alphaDecay;
 
       // Repulsion
       for (let i=0;i<nodes.length;i++){
+        const a=nodes[i];
         for (let j=i+1;j<nodes.length;j++){
-          const a=nodes[i], b=nodes[j];
-          let dx=b.x-a.x, dy=b.y-a.y, d2=dx*dx+dy*dy;
-          if (d2===0){ dx=(Math.random()-0.5)*1e-3; dy=(Math.random()-0.5)*1e-3; d2=dx*dx+dy*dy; }
+          const b=nodes[j];
+          let dx=b.x-a.x, dy=b.y-a.y;
+          let d2=dx*dx+dy*dy;
+          if (d2<=1e-9){ dx=(Math.random()-0.5)*1e-3; dy=(Math.random()-0.5)*1e-3; d2=dx*dx+dy*dy; }
           const dist = Math.sqrt(d2);
           const f = kRepel / d2;
           const fx = f * dx/dist, fy = f * dy/dist;
@@ -391,11 +282,9 @@
         n.vx += (cx - n.x)*centerK;
         n.vy += (cy - n.y)*centerK;
 
-        // damping + cooling
         n.vx *= friction * alpha;
         n.vy *= friction * alpha;
 
-        // clamp velocity
         if (n.vx >  vmax) n.vx =  vmax;
         if (n.vx < -vmax) n.vx = -vmax;
         if (n.vy >  vmax) n.vy =  vmax;
@@ -407,7 +296,6 @@
 
       render();
 
-      // Halt condition tuned for big graphs
       if ((kinetic < 0.003 && alpha < 0.06) || steps > maxSteps) {
         setStatus(`layout settled in ${steps} steps`);
         animId = null;
@@ -468,7 +356,7 @@
         el.style.padding = '2px 3px';
         el.style.borderRadius = '6px';
         el.textContent = '@' + n.handle;
-        canvas.parentElement.appendChild(el);
+        graphEl.appendChild(el); // ensure positioned within #graph
         labels.set(n.id, el);
       }
       const r = nodeRadius(n);
@@ -479,37 +367,112 @@
       el.style.top  = (sy - r*zoom - rect.height - 4) + 'px';
     }
   }
-
   function clearLabels(){ labels.forEach(el=>el.remove()); labels.clear(); }
 
-  // Tooltip (desktop)
-  canvas.addEventListener('mousemove', (e) => {
+  // ===== Event wiring (after functions exist) =====
+  showEdgesInput.addEventListener('change', () => { showEdges = showEdgesInput.checked; render(); });
+  // prevent page scroll while interacting with graph
+  ['wheel','touchmove'].forEach(evt => {
+    graphEl.addEventListener(evt, e => e.preventDefault(), { passive: false });
+  });
+  window.addEventListener('resize', () => { fitCanvas(); render(); });
+
+  // Mouse zoom/pan
+  function screenToWorld(x,y){ return { x:(x - offsetX)/zoom, y:(y - offsetY)/zoom }; }
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const scale = Math.exp(-e.deltaY * 0.0015);
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left - offsetX) / zoom;
-    const y = (e.clientY - rect.top  - offsetY) / zoom;
-    let hit = null;
-    for (let i=nodes.length-1;i>=0;i--){
-      const n = nodes[i], r=nodeRadius(n);
-      const dx=x-n.x, dy=y-n.y;
-      if (dx*dx+dy*dy <= r*r) { hit = n; break; }
+    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+    const before = screenToWorld(cx, cy);
+    zoom = Math.max(0.25, Math.min(6, zoom * scale));
+    const after = screenToWorld(cx, cy);
+    offsetX += (after.x - before.x) * zoom;
+    offsetY += (after.y - before.y) * zoom;
+    render();
+  }, { passive:false });
+
+  let panning=false, lastX=0, lastY=0;
+  canvas.addEventListener('mousedown', e=>{ panning=true; lastX=e.clientX; lastY=e.clientY; });
+  window.addEventListener('mouseup', ()=>{ panning=false; });
+  window.addEventListener('mousemove', e=>{
+    if (!panning) return;
+    offsetX += (e.clientX - lastX);
+    offsetY += (e.clientY - lastY);
+    lastX = e.clientX; lastY = e.clientY;
+    render();
+  });
+
+  // Touch (mobile): 1-finger pan, 2-finger pinch
+  let touchState = { mode:'none', lastX:0, lastY:0, startZoom:1, startDist:1, anchorWorld:{x:0,y:0} };
+  function touchDistance(t1, t2) { const dx=t2.clientX-t1.clientX, dy=t2.clientY-t1.clientY; return Math.hypot(dx,dy); }
+  function touchMidpoint(t1, t2) { return { x:(t1.clientX+t2.clientX)/2, y:(t1.clientY+t2.clientY)/2 }; }
+
+  graphEl.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      touchState.mode = 'pan';
+      touchState.lastX = e.touches[0].clientX;
+      touchState.lastY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      const [t1, t2] = e.touches;
+      touchState.mode = 'pinch';
+      touchState.startDist = touchDistance(t1, t2);
+      touchState.startZoom = zoom;
+      const mid = touchMidpoint(t1, t2);
+      const rect = canvas.getBoundingClientRect();
+      const sx = mid.x - rect.left, sy = mid.y - rect.top;
+      touchState.anchorWorld = { x: (sx - offsetX)/zoom, y: (sy - offsetY)/zoom };
     }
-    if (hit) {
-      tooltip.style.display='block';
-      tooltip.textContent = `@${hit.handle} — mentions: ${hit.mentions}`;
-      tooltip.style.left = e.clientX + 'px';
-      tooltip.style.top  = e.clientY + 'px';
-    } else {
-      tooltip.style.display='none';
+    e.preventDefault();
+  }, { passive: false });
+
+  graphEl.addEventListener('touchmove', (e) => {
+    if (touchState.mode === 'pan' && e.touches.length === 1) {
+      const nx = e.touches[0].clientX, ny = e.touches[0].clientY;
+      offsetX += (nx - touchState.lastX);
+      offsetY += (ny - touchState.lastY);
+      touchState.lastX = nx; touchState.lastY = ny;
+      render();
+    } else if (touchState.mode === 'pinch' && e.touches.length === 2) {
+      const [t1, t2] = e.touches;
+      const dist = touchDistance(t1, t2);
+      const rect = canvas.getBoundingClientRect();
+      const mid = touchMidpoint(t1, t2);
+      const sx = mid.x - rect.left, sy = mid.y - rect.top;
+      const newZoom = Math.max(0.25, Math.min(6, touchState.startZoom * (dist / touchState.startDist)));
+      const beforeWorld = touchState.anchorWorld;
+      offsetX = sx - beforeWorld.x * newZoom;
+      offsetY = sy - beforeWorld.y * newZoom;
+      zoom = newZoom;
+      render();
     }
+    e.preventDefault();
+  }, { passive: false });
+
+  graphEl.addEventListener('touchend', (e) => {
+    if (e.touches.length === 0) {
+      touchState.mode = 'none';
+    } else if (e.touches.length === 1) {
+      touchState.mode = 'pan';
+      touchState.lastX = e.touches[0].clientX;
+      touchState.lastY = e.touches[0].clientY;
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  // Slider change
+  minCountInput.addEventListener('input', () => {
+    minCountLabel.textContent = minCountInput.value;
+    recomputeAndRender();
   });
 
   // ===== Recompute =====
   function recomputeAndRender() {
     const minMentions = parseInt(minCountInput.value, 10) || 1;
-    graph = buildGraph(minMentions);
-    nodes = graph.nodes;
-    links = graph.links.map(l => ({...l}));
-    links.forEach(l => { l.a = nodes.find(n=>n.id===l.source); l.b = nodes.find(n=>n.id===l.target); });
+    const built = buildGraph(minMentions);
+    nodes = built.nodes;
+    links = built.links;
+    // link endpoints are attached in layoutGraph()
     clearLabels();
     fitCanvas();
     clearBlack();
@@ -523,7 +486,7 @@
     try {
       setStatus('boot…');
       fitCanvas(); clearBlack();
-      minCountLabel.textContent = minCountInput.value;
+      minCountLabel.textContent = String(minCountInput.value);
       await loadSocial();
       recomputeAndRender();
     } catch (err) {
@@ -531,15 +494,7 @@
       errEl.textContent = String(err.message || err);
     }
   })();
-
-  // UI change
-  minCountInput.addEventListener('input', () => {
-    minCountLabel.textContent = minCountInput.value;
-    recomputeAndRender();
-  });
 })();
 </script>
 </body>
 </html>
-
-
