@@ -358,10 +358,10 @@ graphEl.addEventListener('touchend', (e) => {
     let steps = 0;
     function step() {
       steps++;
-      const kSpring = 0.01;
+      const kSpring = 0.006;
       const kRepel = 600;
       const centerK = 0.0005;
-      const friction = 0.85;
+      const friction = 0.76;
 
       // Repulsion
       for (let i=0;i<nodes.length;i++){
