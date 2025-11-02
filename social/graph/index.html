@@ -311,12 +311,12 @@
     const alphaDecay = 0.998;      // shrink each step
     const alphaMin = 0.02;
 
-    const kSpring = 0.008;         // slightly softer springs (less oscillation)
+    const kSpring = 0.012;         // slightly softer springs (less oscillation)
     const kRepel  = 2000;          // gentler repulsion
-    const friction = 0.92;         // stronger damping
+    const friction = 0.85;         // stronger damping
     const centerK = 0.0006;        // mild centering
     const minDist = 8;             // soften repulsion at very short ranges
-    const maxSpeed = 3.0;          // clamp velocity to avoid crazy bounces
+    const maxSpeed = 5.0;          // clamp velocity to avoid crazy bounces
 
     let calmFrames = 0;            // need a few calm frames in a row to stop
 
