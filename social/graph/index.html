@@ -286,9 +286,9 @@
   const W = canvas.parentElement.clientWidth, H = canvas.parentElement.clientHeight;
   const cx = W / 2, cy = H / 2;
 
-  // --- Centered initial placement (tight disk around center) ---
+  // --- Centered initial placement (tight disk) ---
   const R = Math.max(40, Math.min(W, H) * 0.10);
-  nodes.forEach((n, i) => {
+  nodes.forEach(n => {
     const ang = Math.random() * Math.PI * 2;
     const r = R * (0.25 + 0.75 * Math.random());
     n.x = cx + Math.cos(ang) * r;
@@ -296,7 +296,7 @@
     n.vx = 0; n.vy = 0;
   });
 
-  // --- Link natural lengths from weights (unchanged shape) ---
+  // --- Link natural lengths from weights ---
   const vals = links.map(l => l.value || 0);
   let vmin = 0, vmax = 1;
   if (vals.length) {
@@ -312,61 +312,99 @@
     l.b = nodes.find(n => n.id === l.target);
   });
 
-  // --- Simulation with warm-up speedup ---
+  // --- Dynamics (fast settle, then cool) ---
   let steps = 0;
-  const WARM_STEPS = 220;     // how long to run in turbo mode
-  const SPEEDUP    = 2.4;     // boost for spring/centering forces during warmup
-  const SUBSTEPS_WARM = 3;    // do more integration steps per frame initially
 
-  // Base constants (post-warmup values tuned for stability)
-  const kSpringBase = 0.012;  // spring strength (higher = pulls together faster)
-  const kRepel      = 2200;   // node-node repulsion
-  const centerKBase = 0.0012; // centering force (pull to canvas center)
-  const friction    = 0.90;   // velocity damping (closer to 1 = less damping → faster but bouncier)
+  // Warm-up for speed, then cool for stability
+  const WARM_STEPS     = 160;
+  const SPEEDUP        = 1.8;     // modest boost (too high = chaos)
+  const SUBSTEPS_WARM  = 2;
+
+  // Base (post-warm) constants
+  const kSpringBase = 0.010;      // spring strength
+  const kRepelBase  = 1200;       // base repulsion
+  const centerKBase = 0.0010;     // pull to center
+  const friction    = 0.90;       // velocity damping
+
+  // Stabilizers
+  const SOFT_CORE   = 18;         // softening length (px) for repulsion
+  const FMAX        = 3.0;        // cap on any single force component
+  const MAX_V_WARM  = 6.0;        // speed cap early
+  const MAX_V_COOL  = 2.2;        // speed cap late
+  const SPRING_DAMP = 0.06;       // damps oscillations along springs
+
+  function clamp(v, lim) { return Math.max(-lim, Math.min(lim, v)); }
 
   function step() {
     steps++;
 
-    // Warm-up knobs
-    const isWarm = steps < WARM_STEPS;
+    // Schedules
+    const isWarm   = steps < WARM_STEPS;
     const substeps = isWarm ? SUBSTEPS_WARM : 1;
-    const kSpring = isWarm ? kSpringBase * SPEEDUP : kSpringBase;
-    const centerK = isWarm ? centerKBase * SPEEDUP : centerKBase;
+    const kSpring  = isWarm ? kSpringBase * SPEEDUP : kSpringBase;
+    const centerK  = isWarm ? centerKBase * SPEEDUP : centerKBase;
+    const kRepel   = isWarm ? kRepelBase  * 1.2     : kRepelBase;
 
-    // Run multiple substeps per frame to "fast-forward" early time
+    // temperature-like cooling multiplier (extra damping after warm-up)
+    const cool = isWarm ? 1.0 : Math.max(0.85, 1.0 - (steps - WARM_STEPS) / 600); // → 0.85 floor
+
     for (let s = 0; s < substeps; s++) {
-
-      // Repulsion
+      // Repulsion with soft-core and force cap
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           const a = nodes[i], b = nodes[j];
           let dx = b.x - a.x, dy = b.y - a.y;
-          let d2 = dx * dx + dy * dy;
-          if (d2 === 0) { dx = (Math.random() - 0.5) * 1e-3; dy = (Math.random() - 0.5) * 1e-3; d2 = dx * dx + dy * dy; }
+          let d2 = dx*dx + dy*dy + SOFT_CORE*SOFT_CORE; // softened
           const dist = Math.sqrt(d2);
-          const f = kRepel / d2;
-          const fx = f * dx / dist, fy = f * dy / dist;
-          a.vx -= fx; a.vy -= fy; b.vx += fx; b.vy += fy;
+          // 1 / d^2 repulsion (softened), capped
+          let f = kRepel / d2;
+          const fx = clamp(f * dx / dist, FMAX);
+          const fy = clamp(f * dy / dist, FMAX);
+          a.vx -= fx; a.vy -= fy;
+          b.vx += fx; b.vy += fy;
         }
       }
 
-      // Springs
+      // Springs with simple velocity-proportional damping
       for (const l of links) {
         const a = l.a, b = l.b; if (!a || !b) continue;
         let dx = b.x - a.x, dy = b.y - a.y;
-        let dist = Math.sqrt(dx * dx + dy * dy) || 1e-6;
+        let dist = Math.sqrt(dx*dx + dy*dy) || 1e-6;
+        const nx = dx / dist, ny = dy / dist;
         const diff = dist - l.len;
-        const f = kSpring * diff;
-        const fx = f * dx / dist, fy = f * dy / dist;
-        a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+
+        // Spring force
+        let fs = kSpring * diff;
+        // Project relative velocity along the spring and damp it
+        const relvx = (b.vx - a.vx), relvy = (b.vy - a.vy);
+        const vAlong = relvx * nx + relvy * ny;
+        fs -= SPRING_DAMP * vAlong;
+
+        const fx = clamp(fs * nx, FMAX), fy = clamp(fs * ny, FMAX);
+        a.vx += fx; a.vy += fy;
+        b.vx -= fx; b.vy -= fy;
       }
 
-      // Centering + integrate
+      // Centering + integrate + speed cap + cooling
+      const vCap = isWarm ? MAX_V_WARM : MAX_V_COOL;
       for (const n of nodes) {
         n.vx += (cx - n.x) * centerK;
         n.vy += (cy - n.y) * centerK;
-        n.vx *= friction; n.vy *= friction;
-        n.x += n.vx; n.y += n.vy;
+
+        // friction and global cooling
+        n.vx *= friction * cool;
+        n.vy *= friction * cool;
+
+        // speed cap
+        const sp2 = n.vx*n.vx + n.vy*n.vy;
+        if (sp2 > vCap*vCap) {
+          const sp = Math.sqrt(sp2);
+          n.vx = n.vx * (vCap / sp);
+          n.vy = n.vy * (vCap / sp);
+        }
+
+        n.x += n.vx;
+        n.y += n.vy;
       }
     }
 
@@ -374,9 +412,9 @@
 
     // Stop when kinetic energy is tiny (or after a hard cap)
     let kinetic = 0;
-    for (const n of nodes) kinetic += n.vx * n.vx + n.vy * n.vy;
+    for (const n of nodes) kinetic += n.vx*n.vx + n.vy*n.vy;
 
-    if (steps < 900 && kinetic > 0.002) {
+    if (steps < 1200 && kinetic > 0.0006) {
       animId = requestAnimationFrame(step);
     } else {
       setStatus(`layout settled in ${steps} steps`);
