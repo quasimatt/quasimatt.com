@@ -400,7 +400,7 @@ graphEl.addEventListener('touchend', (e) => {
 
       render();
 
-      if (steps < 800 && kinetic > 0.01) {
+      if (steps < 2000 && kinetic > 0.01) {
         animId = requestAnimationFrame(step);
       } else {
         setStatus(`layout settled in ${steps} steps`);
