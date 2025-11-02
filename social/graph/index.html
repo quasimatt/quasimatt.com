@@ -58,6 +58,11 @@
   const minCountInput = document.getElementById('minCount');
   const minCountLabel = document.getElementById('minCountLabel');
   const graphEl = document.getElementById('graph');
+  // pan & zoom state (must exist before handlers use them)
+  let zoom = 1;
+  let offsetX = 0;
+  let offsetY = 0;
+
 
   const showEdgesInput = document.getElementById('showEdges');
   let showEdges = true;
