@@ -61,9 +61,13 @@
 
   const showEdgesInput = document.getElementById('showEdges');
   let showEdges = true;
-  showEdgesInput.addEventListener('change', () => { showEdges = showEdgesInput.checked; render(); });
 
-  // Prevent page scroll while interacting
+  showEdgesInput.addEventListener('change', () => {
+    showEdges = showEdgesInput.checked;
+    render();
+  });
+
+  // Trap wheel / touchmove so the page doesn't scroll when interacting with the graph
   ['wheel','touchmove'].forEach(evt => {
     graphEl.addEventListener(evt, e => e.preventDefault(), { passive: false });
   });
@@ -148,62 +152,49 @@
   }
 
   function buildGraph(minMentions = 1) {
-    // 1) Raw mention counts for filtering (no decay)
     const rawMentionCounts = new Map();
-
-    // 2) Decayed mention totals for normalization
     const decayedMentions = new Map();
 
-    // 3) Decayed co-mentions
     const linkKey = (a,b) => a < b ? `${a}|${b}` : `${b}|${a}`;
     const linksMap = new Map();
 
     for (const p of rawPosts) {
       const hs = [...p.handles];
-      // weight by recency
       const w = Math.max(0, 1 - 0.01 * daysAgo(p.date));
 
-      // update raw + decayed per-handle tallies
       for (const h of hs) {
         rawMentionCounts.set(h, (rawMentionCounts.get(h) || 0) + 1);
         decayedMentions.set(h, (decayedMentions.get(h) || 0) + w);
       }
 
-      // decayed co-mentions
       if (hs.length >= 2) {
         for (let i = 0; i < hs.length; i++) {
           for (let j = i + 1; j < hs.length; j++) {
             const a = hs[i], b = hs[j];
             const key = linkKey(a, b);
             const prev = linksMap.get(key) || { source: a, target: b, co: 0 };
-            prev.co += w; // accumulate decayed co-mentions
+            prev.co += w;
             linksMap.set(key, prev);
           }
         }
       }
     }
 
-    // 4) Eligible nodes by raw count (UI-friendly)
     const eligible = new Set(
-      [...rawMentionCounts.entries()]
-        .filter(([, c]) => c >= minMentions)
-        .map(([h]) => h)
+      [...rawMentionCounts.entries()].filter(([, c]) => c >= minMentions).map(([h]) => h)
     );
 
-    // 5) Build normalized links using closeness = co / (decayedA + decayedB)
     const links = [];
     for (const { source, target, co } of linksMap.values()) {
       if (!eligible.has(source) || !eligible.has(target)) continue;
       const denom = (decayedMentions.get(source) || 0) + (decayedMentions.get(target) || 0);
       if (denom <= 0) continue;
-      const value = co / denom; // normalized closeness in (0, 0.5]
+      const value = co / denom;
       if (value > 0) links.push({ source, target, value });
     }
 
-    // 6) Nodes carry raw mentions (for size/tooltip)
     const nodes = [...eligible].map(h => ({
-      id: h,
-      handle: h,
+      id: h, handle: h,
       mentions: rawMentionCounts.get(h) || 0,
       _decayed: decayedMentions.get(h) || 0
     }));
@@ -211,220 +202,129 @@
     return { nodes, links };
   }
 
-  // ===== Layout + interactions (vanilla) =====
-  // Touch gestures
-  let touchState = { mode:'none', lastX:0, lastY:0, startZoom:1, startDist:1, anchorWorld:{x:0,y:0} };
-  function touchDistance(t1, t2) { const dx=t2.clientX-t1.clientX, dy=t2.clientY-t1.clientY; return Math.hypot(dx,dy); }
-  function touchMidpoint(t1, t2) { return { x:(t1.clientX+t2.clientX)/2, y:(t1.clientY+t2.clientY)/2 }; }
-  graphEl.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 1) {
-      touchState.mode = 'pan'; touchState.lastX = e.touches[0].clientX; touchState.lastY = e.touches[0].clientY;
-    } else if (e.touches.length === 2) {
-      const [t1,t2] = e.touches;
-      touchState.mode='pinch'; touchState.startDist = touchDistance(t1,t2); touchState.startZoom = zoom;
-      const mid = touchMidpoint(t1,t2); const rect = canvas.getBoundingClientRect();
-      const sx = mid.x - rect.left, sy = mid.y - rect.top;
-      touchState.anchorWorld = { x:(sx - offsetX)/zoom, y:(sy - offsetY)/zoom };
-    }
-    e.preventDefault();
-  }, { passive:false });
-  graphEl.addEventListener('touchmove', (e) => {
-    if (touchState.mode === 'pan' && e.touches.length === 1) {
-      const nx=e.touches[0].clientX, ny=e.touches[0].clientY;
-      offsetX += (nx - touchState.lastX); offsetY += (ny - touchState.lastY);
-      touchState.lastX = nx; touchState.lastY = ny; render();
-    } else if (touchState.mode === 'pinch' && e.touches.length === 2) {
-      const [t1,t2]=e.touches; const dist=touchDistance(t1,t2); const rect=canvas.getBoundingClientRect();
-      const mid=touchMidpoint(t1,t2); const sx=mid.x-rect.left, sy=mid.y-rect.top;
-      const newZoom = Math.max(0.25, Math.min(6, touchState.startZoom * (dist / touchState.startDist)));
-      const beforeWorld = touchState.anchorWorld;
-      offsetX = sx - beforeWorld.x * newZoom;
-      offsetY = sy - beforeWorld.y * newZoom;
-      zoom = newZoom; render();
-    }
-    e.preventDefault();
-  }, { passive:false });
-  graphEl.addEventListener('touchend', (e) => {
-    if (e.touches.length === 0) { touchState.mode='none'; }
-    else if (e.touches.length === 1) {
-      touchState.mode='pan'; touchState.lastX=e.touches[0].clientX; touchState.lastY=e.touches[0].clientY;
-    }
-    e.preventDefault();
-  }, { passive:false });
-
-  // Zoom/pan (mouse)
-  let zoom = 1, offsetX = 0, offsetY = 0;
-  function screenToWorld(x,y){ return { x:(x - offsetX)/zoom, y:(y - offsetY)/zoom }; }
-  canvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const scale = Math.exp(-e.deltaY * 0.0015);
-    const rect = canvas.getBoundingClientRect();
-    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
-    const before = screenToWorld(cx, cy);
-    zoom = Math.max(0.25, Math.min(6, zoom * scale));
-    const after = screenToWorld(cx, cy);
-    offsetX += (after.x - before.x) * zoom;
-    offsetY += (after.y - before.y) * zoom;
-    render();
-  }, { passive:false });
-  let panning=false, lastX=0, lastY=0;
-  canvas.addEventListener('mousedown', e=>{ panning=true; lastX=e.clientX; lastY=e.clientY; });
-  window.addEventListener('mouseup', ()=>{ panning=false; });
-  window.addEventListener('mousemove', e=>{
-    if (!panning) return;
-    offsetX += (e.clientX - lastX);
-    offsetY += (e.clientY - lastY);
-    lastX = e.clientX; lastY = e.clientY;
-    render();
-  });
-
-  // Force sim state
+  // ===== Layout (fast to still) =====
   let nodes=[], links=[];
   let animId = null;
 
   function layoutGraph() {
-  const W = canvas.parentElement.clientWidth, H = canvas.parentElement.clientHeight;
-  const cx = W / 2, cy = H / 2;
+    const W = canvas.parentElement.clientWidth, H = canvas.parentElement.clientHeight;
 
-  // --- Centered initial placement (tight disk) ---
-  const R = Math.max(40, Math.min(W, H) * 0.10);
-  nodes.forEach(n => {
-    const ang = Math.random() * Math.PI * 2;
-    const r = R * (0.25 + 0.75 * Math.random());
-    n.x = cx + Math.cos(ang) * r;
-    n.y = cy + Math.sin(ang) * r;
-    n.vx = 0; n.vy = 0;
-  });
+    // Initial jittered grid (your original visual)
+    nodes.forEach((n,i)=>{
+      const cols = Math.ceil(Math.sqrt(nodes.length));
+      const x = (i % cols) / (cols - 1 || 1);
+      const y = Math.floor(i / cols) / (cols - 1 || 1);
+      n.x = 40 + x*(W-80) + (Math.random()-0.5)*24;
+      n.y = 40 + y*(H-80) + (Math.random()-0.5)*24;
+      n.vx = 0; n.vy = 0;
+    });
 
-  // --- Link natural lengths from weights ---
-  const vals = links.map(l => l.value || 0);
-  let vmin = 0, vmax = 1;
-  if (vals.length) {
-    vmin = Math.min(...vals);
-    vmax = Math.max(...vals);
-    if (vmax === vmin) vmax = vmin + 1;
-  }
-  links.forEach(l => {
-    const t = ((l.value || 0) - vmin) / (vmax - vmin);
-    const dMin = 24, dMax = Math.max(120, 0.48 * Math.min(W, H));
-    l.len = dMax - t * (dMax - dMin);
-    l.a = nodes.find(n => n.id === l.source);
-    l.b = nodes.find(n => n.id === l.target);
-  });
+    // Link lengths from weights
+    const vals = links.map(l=>l.value||0);
+    let vmin=0, vmax=1; if (vals.length){ vmin=Math.min(...vals); vmax=Math.max(...vals); if (vmax===vmin) vmax=vmin+1; }
+    links.forEach(l=>{
+      const t = ((l.value||0) - vmin) / (vmax - vmin);
+      const dMin = 26, dMax = Math.max(140, 0.55*Math.min(W,H));
+      l.len = dMax - t*(dMax - dMin);
+      l.a = nodes.find(n=>n.id===l.source);
+      l.b = nodes.find(n=>n.id===l.target);
+    });
 
-  // --- Dynamics (fast settle, then cool) ---
-  let steps = 0;
+    // --- Stabilized dynamics (minimal changes to your style) ---
+    let steps = 0;
+    const kSpring = 0.012;      // a touch stronger springs
+    const kRepel  = 1500;       // slightly less repulsion (reduces slingshot)
+    const centerK = 0.0012;     // stronger centering so it pulls in faster
+    const friction = 0.92;      // more damping → fewer long oscillations
 
-  // Warm-up for speed, then cool for stability
-  const WARM_STEPS     = 160;
-  const SPEEDUP        = 1.8;     // modest boost (too high = chaos)
-  const SUBSTEPS_WARM  = 2;
+    const SOFT = 16;            // soft-core to avoid infinite forces at tiny distances
+    const SPRING_DAMP = 0.05;   // velocity damping along spring direction
+    const MAX_V_WARM = 3.2;     // speed cap early
+    const MAX_V_COOL = 1.7;     // speed cap later
+    const WARM_STEPS = 120;     // short warm-up for speed
+    const SUBSTEPS_WARM = 2;    // small substeps to settle quicker
 
-  // Base (post-warm) constants
-  const kSpringBase = 0.010;      // spring strength
-  const kRepelBase  = 1200;       // base repulsion
-  const centerKBase = 0.0010;     // pull to center
-  const friction    = 0.90;       // velocity damping
+    function clamp(v, lim){ return Math.max(-lim, Math.min(lim, v)); }
 
-  // Stabilizers
-  const SOFT_CORE   = 18;         // softening length (px) for repulsion
-  const FMAX        = 3.0;        // cap on any single force component
-  const MAX_V_WARM  = 6.0;        // speed cap early
-  const MAX_V_COOL  = 2.2;        // speed cap late
-  const SPRING_DAMP = 0.06;       // damps oscillations along springs
-
-  function clamp(v, lim) { return Math.max(-lim, Math.min(lim, v)); }
-
-  function step() {
-    steps++;
-
-    // Schedules
-    const isWarm   = steps < WARM_STEPS;
-    const substeps = isWarm ? SUBSTEPS_WARM : 1;
-    const kSpring  = isWarm ? kSpringBase * SPEEDUP : kSpringBase;
-    const centerK  = isWarm ? centerKBase * SPEEDUP : centerKBase;
-    const kRepel   = isWarm ? kRepelBase  * 1.2     : kRepelBase;
-
-    // temperature-like cooling multiplier (extra damping after warm-up)
-    const cool = isWarm ? 1.0 : Math.max(0.85, 1.0 - (steps - WARM_STEPS) / 600); // → 0.85 floor
-
-    for (let s = 0; s < substeps; s++) {
-      // Repulsion with soft-core and force cap
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const a = nodes[i], b = nodes[j];
-          let dx = b.x - a.x, dy = b.y - a.y;
-          let d2 = dx*dx + dy*dy + SOFT_CORE*SOFT_CORE; // softened
-          const dist = Math.sqrt(d2);
-          // 1 / d^2 repulsion (softened), capped
-          let f = kRepel / d2;
-          const fx = clamp(f * dx / dist, FMAX);
-          const fy = clamp(f * dy / dist, FMAX);
-          a.vx -= fx; a.vy -= fy;
-          b.vx += fx; b.vy += fy;
-        }
-      }
-
-      // Springs with simple velocity-proportional damping
-      for (const l of links) {
-        const a = l.a, b = l.b; if (!a || !b) continue;
-        let dx = b.x - a.x, dy = b.y - a.y;
-        let dist = Math.sqrt(dx*dx + dy*dy) || 1e-6;
-        const nx = dx / dist, ny = dy / dist;
-        const diff = dist - l.len;
-
-        // Spring force
-        let fs = kSpring * diff;
-        // Project relative velocity along the spring and damp it
-        const relvx = (b.vx - a.vx), relvy = (b.vy - a.vy);
-        const vAlong = relvx * nx + relvy * ny;
-        fs -= SPRING_DAMP * vAlong;
-
-        const fx = clamp(fs * nx, FMAX), fy = clamp(fs * ny, FMAX);
-        a.vx += fx; a.vy += fy;
-        b.vx -= fx; b.vy -= fy;
-      }
-
-      // Centering + integrate + speed cap + cooling
+    function step() {
+      steps++;
+      const isWarm = steps < WARM_STEPS;
+      const substeps = isWarm ? SUBSTEPS_WARM : 1;
       const vCap = isWarm ? MAX_V_WARM : MAX_V_COOL;
-      for (const n of nodes) {
-        n.vx += (cx - n.x) * centerK;
-        n.vy += (cy - n.y) * centerK;
 
-        // friction and global cooling
-        n.vx *= friction * cool;
-        n.vy *= friction * cool;
-
-        // speed cap
-        const sp2 = n.vx*n.vx + n.vy*n.vy;
-        if (sp2 > vCap*vCap) {
-          const sp = Math.sqrt(sp2);
-          n.vx = n.vx * (vCap / sp);
-          n.vy = n.vy * (vCap / sp);
+      for (let s=0; s<substeps; s++) {
+        // Repulsion (softened + limited)
+        for (let i=0;i<nodes.length;i++){
+          for (let j=i+1;j<nodes.length;j++){
+            const a=nodes[i], b=nodes[j];
+            let dx=b.x-a.x, dy=b.y-a.y;
+            let d2 = dx*dx + dy*dy + SOFT*SOFT;
+            const dist = Math.sqrt(d2);
+            const f = kRepel / d2;
+            const fx = clamp(f * dx/dist, 5.0);
+            const fy = clamp(f * dy/dist, 5.0);
+            a.vx -= fx; a.vy -= fy; b.vx += fx; b.vy += fy;
+          }
         }
 
-        n.x += n.vx;
-        n.y += n.vy;
+        // Springs (with light velocity damping along edge)
+        for (const l of links){
+          const a=l.a, b=l.b; if (!a||!b) continue;
+          let dx=b.x-a.x, dy=b.y-a.y;
+          let dist = Math.sqrt(dx*dx+dy*dy) || 1e-6;
+          const nx = dx/dist, ny = dy/dist;
+          const diff = dist - l.len;
+
+          // spring force
+          let fs = kSpring * diff;
+
+          // damp relative velocity along the spring to kill oscillation
+          const vrelx = b.vx - a.vx, vrely = b.vy - a.vy;
+          const vAlong = vrelx*nx + vrely*ny;
+          fs -= SPRING_DAMP * vAlong;
+
+          const fx = fs * nx, fy = fs * ny;
+          a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+        }
+
+        // Centering + integrate + friction + speed cap
+        const cx = W/2, cy = H/2;
+        for (const n of nodes){
+          n.vx += (cx - n.x)*centerK;
+          n.vy += (cy - n.y)*centerK;
+
+          n.vx *= friction;
+          n.vy *= friction;
+
+          // cap velocities
+          const sp2 = n.vx*n.vx + n.vy*n.vy;
+          if (sp2 > vCap*vCap){
+            const sp = Math.sqrt(sp2);
+            n.vx = n.vx * (vCap / sp);
+            n.vy = n.vy * (vCap / sp);
+          }
+
+          n.x += n.vx; n.y += n.vy;
+        }
+      }
+
+      render();
+
+      // Stop when kinetic energy is small (or after a cap)
+      let kinetic = 0;
+      for (const n of nodes) kinetic += n.vx*n.vx + n.vy*n.vy;
+
+      if (steps < 900 && kinetic > 0.0012) {
+        animId = requestAnimationFrame(step);
+      } else {
+        setStatus(`layout settled in ${steps} steps`);
+        animId = null;
       }
     }
 
-    render();
-
-    // Stop when kinetic energy is tiny (or after a hard cap)
-    let kinetic = 0;
-    for (const n of nodes) kinetic += n.vx*n.vx + n.vy*n.vy;
-
-    if (steps < 1200 && kinetic > 0.0006) {
-      animId = requestAnimationFrame(step);
-    } else {
-      setStatus(`layout settled in ${steps} steps`);
-      animId = null;
-    }
+    if (animId) cancelAnimationFrame(animId);
+    animId = requestAnimationFrame(step);
   }
-
-  if (animId) cancelAnimationFrame(animId);
-  animId = requestAnimationFrame(step);
-}
 
   // ===== Render =====
   function nodeRadius(n){ return 4 + Math.min(14, (n.mentions||0) * 1.2); }
@@ -438,7 +338,7 @@
     ctx.translate(offsetX, offsetY);
     ctx.scale(zoom, zoom);
 
-    // Edges
+    // Edges (thin, constant)
     if (showEdges) {
       ctx.globalAlpha = 0.9;
       ctx.strokeStyle = '#ffffff';
@@ -449,7 +349,7 @@
       }
     }
 
-    // Nodes
+    // Nodes (hollow)
     for (const n of nodes){
       ctx.beginPath();
       ctx.strokeStyle = '#ffffff';
