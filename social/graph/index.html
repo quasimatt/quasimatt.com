@@ -528,7 +528,25 @@
 
   // ===== Recompute =====
   function recomputeAndRender() {
+    // --- NEW: compute max mentions across all users and set slider max dynamically
+    const mentionTotals = new Map();
+    for (const p of rawPosts) {
+      for (const h of p.handles) {
+        mentionTotals.set(h, (mentionTotals.get(h) || 0) + 1);
+      }
+    }
+    const vals = [...mentionTotals.values()];
+    const maxMentions = vals.length ? Math.max(...vals) : 1;
+
+    // Update slider bounds / value / label safely
+    minCountInput.max = String(maxMentions);
+    if ((+minCountInput.value || 1) > maxMentions) {
+      minCountInput.value = String(maxMentions);
+    }
     const minMentions = parseInt(minCountInput.value, 10) || 1;
+    minCountLabel.textContent = String(minMentions);
+
+    // Build + draw graph as before
     graph = buildGraph(minMentions);
     nodes = graph.nodes;
     links = graph.links.map(l => ({...l}));
@@ -536,8 +554,8 @@
     clearLabels();
     fitCanvas();
     clearBlack();
-    if (!nodes.length) { setStatus('no eligible nodes with current filter'); render(); return; }
-    setStatus(`nodes: ${nodes.length} | links: ${links.length}`);
+    if (!nodes.length) { setStatus(`no eligible nodes (max mentions: ${maxMentions})`); render(); return; }
+    setStatus(`nodes: ${nodes.length} | links: ${links.length} | max mentions: ${maxMentions}`);
     layoutGraph();
   }
 
