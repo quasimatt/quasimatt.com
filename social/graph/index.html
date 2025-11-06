@@ -36,7 +36,7 @@
         show edges
       </label>
       <label>since: <strong>2025-09-22</strong></label>
-      <span class="hint">(zoom: scroll, pan: drag. click labels to open profile on X/IG.)</span>
+      <span class="hint">(zoom: scroll, pan: drag.)</span>
       <span id="status" class="hint"></span>
       <span id="error" class="error"></span>
     </div>
@@ -554,7 +554,7 @@
     }
     if (hit) {
       tooltip.style.display='block';
-      tooltip.textContent = `@${hit.handle} · ${hit.platform.toUpperCase()} — mentions: ${hit.mentions}`;
+      tooltip.textContent = `@${hit.handle} — mentions: ${hit.mentions}`;
       tooltip.style.left = e.clientX + 'px';
       tooltip.style.top  = e.clientY + 'px';
     } else {
