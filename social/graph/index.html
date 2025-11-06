@@ -524,12 +524,12 @@
         el.style.fontSize = '12px';
         el.style.padding = '2px 3px';
         el.style.borderRadius = '6px';
-        el.textContent = `@${n.handle} · ${n.platform.toUpperCase()}`;
+        el.textContent = `@${n.handle};
         canvas.parentElement.appendChild(el);
         labels.set(n.id, el);
       } else {
         el.href = n.url;
-        el.textContent = `@${n.handle} · ${n.platform.toUpperCase()}`;
+        el.textContent = `@${n.handle};
       }
       const r = nodeRadius(n);
       const sx = offsetX + n.x*zoom;
