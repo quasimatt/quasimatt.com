@@ -36,7 +36,7 @@
         show edges
       </label>
       <label>since: <strong>2025-09-22</strong></label>
-      <span class="hint">(zoom: scroll, pan: drag. on desktop, click labels to open X.)</span>
+      <span class="hint">(zoom: scroll, pan: drag. click labels to open profile on X/IG.)</span>
       <span id="status" class="hint"></span>
       <span id="error" class="error"></span>
     </div>
@@ -99,6 +99,9 @@
   const SOCIAL_URL = '/social';
   const CUTOFF_ISO = '2025-09-22';
   const TW_HOSTS = new Set(['twitter.com','x.com','mobile.twitter.com']);
+  // IG SUPPORT: hosts + path filters
+  const IG_HOSTS = new Set(['instagram.com','www.instagram.com','m.instagram.com']);
+  const IG_DISALLOWED_FIRST = new Set(['p','reel','reels','stories','explore','tv','accounts']);
 
   function parseDateFromDataDate(val) {
     if (!val) return null;
@@ -109,20 +112,52 @@
   }
   function getCutoffDate(){ const [y,m,d]=CUTOFF_ISO.split('-').map(Number); return new Date(y,m-1,d); }
   function daysAgo(date){ return Math.max(0, Math.floor((Date.now()-date.getTime())/86400000)); }
-  function extractHandleFromHref(href) {
+
+  // IG/X account extraction
+  // Returns { id, platform, handle, url } or null
+  function extractAccountFromHref(href) {
     try {
       const u = new URL(href, location.origin);
-      if (TW_HOSTS.has(u.hostname)) {
+      const host = u.hostname.toLowerCase();
+
+      if (TW_HOSTS.has(host)) {
         const seg = u.pathname.split('/').filter(Boolean)[0] || '';
-        return seg.replace(/^@/, '').trim();
+        const handle = seg.replace(/^@/, '').trim();
+        if (!handle) return null;
+        return {
+          id: `x:${handle.toLowerCase()}`,
+          platform: 'x',
+          handle: handle.toLowerCase(),
+          url: `https://twitter.com/${handle}`
+        };
       }
+
+      if (IG_HOSTS.has(host)) {
+        const parts = u.pathname.split('/').filter(Boolean);
+        const first = (parts[0] || '').toLowerCase();
+        if (!first || IG_DISALLOWED_FIRST.has(first)) return null;
+        // IG usernames: letters/digits/._, up to 30 chars
+        if (!/^[a-z0-9._]{1,30}$/i.test(first)) return null;
+        const handle = first.replace(/^@/,'').toLowerCase();
+        return {
+          id: `ig:${handle}`,
+          platform: 'ig',
+          handle,
+          url: `https://instagram.com/${handle}`
+        };
+      }
+
       return null;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
 
   // ===== Data =====
   let rawPosts = [];
   let graph = { nodes:[], links:[] };
+  // IG SUPPORT: metadata for each account id
+  const accountMeta = new Map(); // id -> {platform, handle, url}
 
   async function loadSocial() {
     setStatus('fetching /social…');
@@ -139,13 +174,19 @@
     ps.forEach(el => {
       const date = parseDateFromDataDate(el.getAttribute('data-date'));
       if (!date || date < cutoff) return;
-      const handles = new Set();
+
+      const ids = new Set();
       el.querySelectorAll('a[href]').forEach(a => {
-        const h = extractHandleFromHref(a.getAttribute('href'));
-        if (h) handles.add(h.toLowerCase());
+        const acc = extractAccountFromHref(a.getAttribute('href'));
+        if (acc) {
+          ids.add(acc.id);
+          if (!accountMeta.has(acc.id)) accountMeta.set(acc.id, { platform: acc.platform, handle: acc.handle, url: acc.url });
+        }
       });
-      if (handles.size >= 1) posts.push({ date, handles });
+
+      if (ids.size >= 1) posts.push({ date, ids }); // ids are platform-qualified
     });
+
     posts.sort((a,b)=>a.date-b.date);
     rawPosts = posts;
     setStatus(`parsed ${posts.length} posts since 2025-09-22`);
@@ -163,54 +204,53 @@
     const linksMap = new Map();
 
     for (const p of rawPosts) {
-      const hs = [...p.handles];
-      // weight by recency
+      const ids = [...p.ids];
       const w = Math.max(0, 1 - 0.01 * daysAgo(p.date));
 
-      // update raw + decayed per-handle tallies
-      for (const h of hs) {
-        rawMentionCounts.set(h, (rawMentionCounts.get(h) || 0) + 1);
-        decayedMentions.set(h, (decayedMentions.get(h) || 0) + w);
+      for (const id of ids) {
+        rawMentionCounts.set(id, (rawMentionCounts.get(id) || 0) + 1);
+        decayedMentions.set(id, (decayedMentions.get(id) || 0) + w);
       }
 
-      // decayed co-mentions
-      if (hs.length >= 2) {
-        for (let i = 0; i < hs.length; i++) {
-          for (let j = i + 1; j < hs.length; j++) {
-            const a = hs[i], b = hs[j];
+      if (ids.length >= 2) {
+        for (let i = 0; i < ids.length; i++) {
+          for (let j = i + 1; j < ids.length; j++) {
+            const a = ids[i], b = ids[j];
             const key = linkKey(a, b);
             const prev = linksMap.get(key) || { source: a, target: b, co: 0 };
-            prev.co += w; // accumulate decayed co-mentions
+            prev.co += w;
             linksMap.set(key, prev);
           }
         }
       }
     }
 
-    // 4) Eligible nodes by raw count (UI-friendly)
     const eligible = new Set(
       [...rawMentionCounts.entries()]
         .filter(([, c]) => c >= minMentions)
-        .map(([h]) => h)
+        .map(([id]) => id)
     );
 
-    // 5) Build normalized links using closeness = co / (decayedA + decayedB)
     const links = [];
     for (const { source, target, co } of linksMap.values()) {
       if (!eligible.has(source) || !eligible.has(target)) continue;
       const denom = (decayedMentions.get(source) || 0) + (decayedMentions.get(target) || 0);
       if (denom <= 0) continue;
-      const value = co / denom; // normalized closeness in (0, 0.5]
+      const value = co / denom;
       if (value > 0) links.push({ source, target, value });
     }
 
-    // 6) Nodes carry raw mentions (for size/tooltip), but keep both if you want later
-    const nodes = [...eligible].map(h => ({
-      id: h,
-      handle: h,
-      mentions: rawMentionCounts.get(h) || 0,
-      _decayed: decayedMentions.get(h) || 0 // not displayed; handy if needed
-    }));
+    const nodes = [...eligible].map(id => {
+      const meta = accountMeta.get(id) || { platform:'x', handle:id.split(':').pop(), url:'' };
+      return {
+        id,
+        platform: meta.platform,
+        handle: meta.handle,
+        url: meta.url,
+        mentions: rawMentionCounts.get(id) || 0,
+        _decayed: decayedMentions.get(id) || 0
+      };
+    });
 
     return { nodes, links };
   }
@@ -219,11 +259,11 @@
   // --- Touch (mobile) gestures: 1-finger pan, 2-finger pinch zoom ---
 
   let touchState = {
-    mode: 'none',             // 'none' | 'pan' | 'pinch'
-    lastX: 0, lastY: 0,       // for pan
-    startZoom: 1,             // for pinch
-    startDist: 1,             // for pinch
-    anchorWorld: {x:0,y:0},   // world point under the pinch midpoint at gesture start
+    mode: 'none',
+    lastX: 0, lastY: 0,
+    startZoom: 1,
+    startDist: 1,
+    anchorWorld: {x:0,y:0},
   };
 
   function touchDistance(t1, t2) {
@@ -238,19 +278,16 @@
 
   graphEl.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
-      // Start pan
       touchState.mode = 'pan';
       touchState.lastX = e.touches[0].clientX;
       touchState.lastY = e.touches[0].clientY;
     } else if (e.touches.length === 2) {
-      // Start pinch
       const [t1, t2] = e.touches;
       touchState.mode = 'pinch';
       touchState.startDist = touchDistance(t1, t2);
       touchState.startZoom = zoom;
 
       const mid = touchMidpoint(t1, t2);
-      // world point under fingers at start (like wheel-zoom focal point)
       const rect = canvas.getBoundingClientRect();
       const sx = mid.x - rect.left, sy = mid.y - rect.top;
       touchState.anchorWorld = { x: (sx - offsetX)/zoom, y: (sy - offsetY)/zoom };
@@ -272,12 +309,8 @@
       const mid = touchMidpoint(t1, t2);
       const sx = mid.x - rect.left, sy = mid.y - rect.top;
 
-      // scale from start
       const newZoom = Math.max(0.25, Math.min(6, touchState.startZoom * (dist / touchState.startDist)));
-
-      // keep the anchor world point under the same screen point
-      const beforeWorld = touchState.anchorWorld; // fixed world point
-      // after zoom, offset must be adjusted:
+      const beforeWorld = touchState.anchorWorld;
       offsetX = sx - beforeWorld.x * newZoom;
       offsetY = sy - beforeWorld.y * newZoom;
 
@@ -291,7 +324,6 @@
     if (e.touches.length === 0) {
       touchState.mode = 'none';
     } else if (e.touches.length === 1) {
-      // If a pinch ended and one finger remains, switch to pan
       touchState.mode = 'pan';
       touchState.lastX = e.touches[0].clientX;
       touchState.lastY = e.touches[0].clientY;
@@ -448,7 +480,6 @@
   const labels = new Map();
 
   function render() {
-    // Clear whole backing store (retina-safe) and paint black
     clearBlack();
 
     // World->screen transform
@@ -456,7 +487,7 @@
     ctx.translate(offsetX, offsetY);
     ctx.scale(zoom, zoom);
 
-    // Edges (thin, constant)
+    // Edges
     if (showEdges) {
       ctx.globalAlpha = 0.9;
       ctx.strokeStyle = '#ffffff';
@@ -478,12 +509,14 @@
 
     ctx.restore();
 
-    // Labels in screen space
+    // Labels in screen space (platform-aware)
     for (const n of nodes){
       let el = labels.get(n.id);
       if (!el) {
         el = document.createElement('a');
-        el.href = `https://twitter.com/${n.handle}`;
+        el.href = n.url || (n.platform === 'ig'
+          ? `https://instagram.com/${n.handle}`
+          : `https://twitter.com/${n.handle}`);
         el.target = '_blank'; el.rel = 'noopener';
         el.style.position = 'absolute';
         el.style.color = '#fff';
@@ -491,9 +524,12 @@
         el.style.fontSize = '12px';
         el.style.padding = '2px 3px';
         el.style.borderRadius = '6px';
-        el.textContent = '@' + n.handle;
+        el.textContent = `@${n.handle} · ${n.platform.toUpperCase()}`;
         canvas.parentElement.appendChild(el);
         labels.set(n.id, el);
+      } else {
+        el.href = n.url;
+        el.textContent = `@${n.handle} · ${n.platform.toUpperCase()}`;
       }
       const r = nodeRadius(n);
       const sx = offsetX + n.x*zoom;
@@ -518,7 +554,7 @@
     }
     if (hit) {
       tooltip.style.display='block';
-      tooltip.textContent = `@${hit.handle} — mentions: ${hit.mentions}`;
+      tooltip.textContent = `@${hit.handle} · ${hit.platform.toUpperCase()} — mentions: ${hit.mentions}`;
       tooltip.style.left = e.clientX + 'px';
       tooltip.style.top  = e.clientY + 'px';
     } else {
@@ -528,17 +564,16 @@
 
   // ===== Recompute =====
   function recomputeAndRender() {
-    // --- NEW: compute max mentions across all users and set slider max dynamically
+    // compute max mentions
     const mentionTotals = new Map();
     for (const p of rawPosts) {
-      for (const h of p.handles) {
-        mentionTotals.set(h, (mentionTotals.get(h) || 0) + 1);
+      for (const id of p.ids) {
+        mentionTotals.set(id, (mentionTotals.get(id) || 0) + 1);
       }
     }
     const vals = [...mentionTotals.values()];
     const maxMentions = vals.length ? Math.max(...vals) : 1;
 
-    // Update slider bounds / value / label safely
     minCountInput.max = String(maxMentions);
     if ((+minCountInput.value || 1) > maxMentions) {
       minCountInput.value = String(maxMentions);
@@ -546,7 +581,6 @@
     const minMentions = parseInt(minCountInput.value, 10) || 1;
     minCountLabel.textContent = String(minMentions);
 
-    // Build + draw graph as before
     graph = buildGraph(minMentions);
     nodes = graph.nodes;
     links = graph.links.map(l => ({...l}));
@@ -582,3 +616,4 @@
 </script>
 </body>
 </html>
+
