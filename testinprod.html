@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>quasi – eraser text (invert on clear)</title>
+  <title>quasi – eraser text (flip on clear)</title>
   <style>
     html, body { height:100%; margin:0; background:#000; }
     body { font-family: "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif; }
@@ -13,45 +13,46 @@
 <body>
   <canvas id="stage" aria-label="Interactive text canvas"></canvas>
   <script>
-  (() => {
-    const stage = document.getElementById('stage');
-    const sctx = stage.getContext('2d');
+  (function(){
+    var stage = document.getElementById("stage");
+    var sctx = stage.getContext("2d");
 
-    // Offscreen for the text bitmap we erase from
-    const textCanvas = document.createElement('canvas');
-    const tctx = textCanvas.getContext('2d');
+    // Offscreen for text bitmap that we erase from
+    var textCanvas = document.createElement("canvas");
+    var tctx = textCanvas.getContext("2d");
 
-    // Small probe canvas to cheaply check if all text is gone
-    const probe = document.createElement('canvas');
-    const pctx = probe.getContext('2d', { willReadFrequently: true });
+    // Tiny probe canvas to check when all text is erased
+    var probe = document.createElement("canvas");
+    var pctx = probe.getContext("2d", { willReadFrequently: true });
     probe.width = 160; probe.height = 90;
 
-    let dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-    let inverted = false;     // flips when fully erased
-    let dirty = true;         // triggers repaint
-    let lastCheck = 0;        // throttle “is it all erased?” checks
+    var dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    var inverted = false; // false: bg black, text white. true: bg white, text black
+    var dirty = true;
+    var lastCheck = 0;
 
-    const MAIN = "i don't think i belong here but i don't know where to go";
-    const SUB  = "by quasimatt";
+    var MAIN = "i don't think i belong here but i don't know where to go";
+    var SUB  = "by quasimatt";
 
-    function resize() {
-      const w = Math.floor(innerWidth * dpr);
-      const h = Math.floor(innerHeight * dpr);
+    function resize(){
+      var w = Math.floor(innerWidth * dpr);
+      var h = Math.floor(innerHeight * dpr);
       stage.width = w; stage.height = h;
-      stage.style.width = innerWidth + 'px';
-      stage.style.height = innerHeight + 'px';
+      stage.style.width = innerWidth + "px";
+      stage.style.height = innerHeight + "px";
       textCanvas.width = w; textCanvas.height = h;
-      drawText(); // re-render full text on resize
+      drawText();
       dirty = true;
     }
 
-    function wrapLines(ctx, text, font, maxWidth) {
+    function wrapLines(ctx, text, font, maxWidth){
       ctx.font = font;
-      const words = text.split(/\s+/);
-      const lines = [];
-      let line = '';
-      for (const w of words) {
-        const test = line ? line + ' ' + w : w;
+      var words = text.split(" ");
+      var lines = [];
+      var line = "";
+      for (var i=0;i<words.length;i++){
+        var w = words[i];
+        var test = line ? line + " " + w : w;
         if (ctx.measureText(test).width <= maxWidth || !line) line = test;
         else { lines.push(line); line = w; }
       }
@@ -59,114 +60,100 @@
       return lines;
     }
 
-    function drawText() {
-      const W = textCanvas.width, H = textCanvas.height;
+    function drawText(){
+      var W = textCanvas.width, H = textCanvas.height;
       tctx.setTransform(1,0,0,1,0,0);
       tctx.clearRect(0,0,W,H);
 
-      const mainSize = Math.max(26, Math.min(120, Math.floor(W * 0.055)));
-      const subSize  = Math.max(12, Math.min(34,  Math.floor(W * 0.02)));
+      var mainSize = Math.max(26, Math.min(120, Math.floor(W * 0.055)));
+      var subSize  = Math.max(12, Math.min(34,  Math.floor(W * 0.02)));
 
-      const fg = inverted ? '#000' : '#fff';
+      var fg = inverted ? "#000" : "#fff"; // text color depends on background
       tctx.fillStyle = fg;
-      tctx.textAlign = 'center';
-      tctx.textBaseline = 'middle';
+      tctx.textAlign = "center";
+      tctx.textBaseline = "middle";
 
-      const mainFont = `700 ${mainSize}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
-      const subFont  = `400 ${subSize}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+      var mainFont = "700 " + mainSize + "px \"Helvetica Neue\", Helvetica, Arial, system-ui, -apple-system, sans-serif";
+      var subFont  = "400 " + subSize  + "px \"Helvetica Neue\", Helvetica, Arial, system-ui, -apple-system, sans-serif";
 
-      const maxTextWidth = Math.floor(W * 0.8);
-      const lines = wrapLines(tctx, MAIN, mainFont, maxTextWidth);
-      const lineGap = Math.floor(mainSize * 0.35);
-      const blockHeight = lines.length * mainSize + (lines.length - 1) * lineGap + (subSize * 1.6);
-      let y = (H - blockHeight) / 2 + mainSize/2;
+      var maxTextWidth = Math.floor(W * 0.8);
+      var lines = wrapLines(tctx, MAIN, mainFont, maxTextWidth);
+      var lineGap = Math.floor(mainSize * 0.35);
+      var blockHeight = lines.length * mainSize + (lines.length - 1) * lineGap + (subSize * 1.6);
+      var y = (H - blockHeight) / 2 + mainSize/2;
 
       tctx.font = mainFont;
-      for (const ln of lines) { tctx.fillText(ln, W/2, y); y += mainSize + lineGap; }
-
+      for (var j=0;j<lines.length;j++){
+        tctx.fillText(lines[j], W/2, y);
+        y += mainSize + lineGap;
+      }
       tctx.font = subFont;
       tctx.fillText(SUB, W/2, y + subSize*0.8);
 
       dirty = true;
     }
 
-    function paint() {
+    function paint(){
       if (!dirty) return;
       dirty = false;
-
-      const bg = inverted ? '#fff' : '#000';
+      var bg = inverted ? "#fff" : "#000";
       sctx.setTransform(1,0,0,1,0,0);
       sctx.fillStyle = bg;
       sctx.fillRect(0,0,stage.width,stage.height);
       sctx.drawImage(textCanvas, 0, 0);
     }
 
-    function eraseAt(x, y) {
-      const r = Math.max(40, Math.min(160, Math.floor(stage.width * 0.04))); // scales with viewport
-      const g = tctx.createRadialGradient(x, y, 0, x, y, r);
-      g.addColorStop(0.0, 'rgba(0,0,0,1)');
-      g.addColorStop(0.6, 'rgba(0,0,0,0.6)');
-      g.addColorStop(1.0, 'rgba(0,0,0,0)');
-
-      tctx.globalCompositeOperation = 'destination-out';
+    function eraseAt(x, y){
+      var r = Math.max(40, Math.min(160, Math.floor(stage.width * 0.04)));
+      var g = tctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0.0, "rgba(0,0,0,1)");
+      g.addColorStop(0.6, "rgba(0,0,0,0.6)");
+      g.addColorStop(1.0, "rgba(0,0,0,0)");
+      tctx.globalCompositeOperation = "destination-out"; // make pixels transparent so background shows
       tctx.fillStyle = g;
       tctx.beginPath();
       tctx.arc(x, y, r, 0, Math.PI * 2);
       tctx.fill();
-      tctx.globalCompositeOperation = 'source-over';
-
+      tctx.globalCompositeOperation = "source-over";
       dirty = true;
     }
 
-    function toPx(evt) {
-      const rect = stage.getBoundingClientRect();
+    function toPx(evt){
+      var rect = stage.getBoundingClientRect();
       return { x: (evt.clientX - rect.left) * dpr, y: (evt.clientY - rect.top) * dpr };
     }
 
-    // Fast “all erased?” check by downscaling and sampling alpha only
-    function allErased() {
-      // draw downscaled bitmap
+    function allErased(){
       pctx.clearRect(0,0,probe.width,probe.height);
       pctx.drawImage(textCanvas, 0, 0, probe.width, probe.height);
-      const { data } = pctx.getImageData(0, 0, probe.width, probe.height);
-      // If any alpha > 0, some text remains
-      for (let i = 3; i < data.length; i += 4) {
-        if (data[i] !== 0) return false;
-      }
+      var data = pctx.getImageData(0,0,probe.width,probe.height).data;
+      for (var i=3;i<data.length;i+=4){ if (data[i] !== 0) return false; }
       return true;
     }
 
-    // Input: mouse movement erases
-    stage.addEventListener('pointermove', (e) => {
-      const { x, y } = toPx(e);
-      eraseAt(x, y);
+    stage.addEventListener("pointermove", function(e){
+      var p = toPx(e);
+      eraseAt(p.x, p.y);
     });
 
-    // Optional dev reset key (not shown on screen)
-    addEventListener('keydown', (e) => {
-      if (e.key.toLowerCase() === 'r') drawText();
-    });
+    addEventListener("keydown", function(e){ if ((e.key || "").toLowerCase() === "r") drawText(); });
 
-    // Loop
-    function loop(ts) {
+    function loop(ts){
       paint();
-
-      // Throttle “all erased?” check to ~10x/second
-      if (ts - lastCheck > 100) {
+      if (!lastCheck || ts - lastCheck > 100){
         lastCheck = ts;
-        if (allErased()) {
-          inverted = !inverted; // flip the whole palette
-          drawText();           // redraw fresh text in new color (so loop continues)
+        if (allErased()){
+          inverted = !inverted;  // flip background state
+          drawText();            // redraw full text in the opposite color
         }
       }
       requestAnimationFrame(loop);
     }
 
-    addEventListener('resize', resize, { passive:true });
+    addEventListener("resize", resize, { passive: true });
     resize();
     requestAnimationFrame(loop);
   })();
   </script>
 </body>
 </html>
-
