@@ -31,7 +31,7 @@
     var dirty = true;
     var lastCheck = 0;
 
-    var MAIN = "i don't think i belong here but i don't know where to go";
+    var MAIN = "socialized";
     var SUB  = "by quasimatt";
 
     function resize(){
@@ -103,13 +103,20 @@
       sctx.drawImage(textCanvas, 0, 0);
     }
 
-    function eraseAt(x, y){
-      var r = Math.max(40, Math.min(160, Math.floor(stage.width * 0.04)));
+    // ----- Brush helpers -----
+    function baseBrush(){
+      // original was stage.width * 0.04 with min 40 and max 160
+      // increase radius by 50% and adjust clamps accordingly
+      var b = stage.width * 0.04 * 1.5;
+      return Math.max(60, Math.min(240, Math.floor(b)));
+    }
+
+    function eraseStamp(x, y, r){
       var g = tctx.createRadialGradient(x, y, 0, x, y, r);
       g.addColorStop(0.0, "rgba(0,0,0,1)");
       g.addColorStop(0.6, "rgba(0,0,0,0.6)");
       g.addColorStop(1.0, "rgba(0,0,0,0)");
-      tctx.globalCompositeOperation = "destination-out"; // make pixels transparent so background shows
+      tctx.globalCompositeOperation = "destination-out"; // erase to transparent
       tctx.fillStyle = g;
       tctx.beginPath();
       tctx.arc(x, y, r, 0, Math.PI * 2);
@@ -118,10 +125,47 @@
       dirty = true;
     }
 
+    function eraseLine(x0, y0, x1, y1){
+      var r = baseBrush();
+      var dx = x1 - x0, dy = y1 - y0;
+      var dist = Math.hypot(dx, dy);
+      if (dist === 0){ eraseStamp(x1, y1, r); return; }
+      // step at half-radius to avoid gaps at high pointer velocity
+      var step = Math.max(1, r * 0.5);
+      var n = Math.ceil(dist / step);
+      for (var i = 0; i <= n; i++){
+        var t = i / n;
+        var x = x0 + dx * t;
+        var y = y0 + dy * t;
+        eraseStamp(x, y, r);
+      }
+    }
+
+    // ----- Input handling with interpolation -----
+    var lastPt = null;
+
     function toPx(evt){
       var rect = stage.getBoundingClientRect();
       return { x: (evt.clientX - rect.left) * dpr, y: (evt.clientY - rect.top) * dpr };
     }
+
+    stage.addEventListener("pointerdown", function(e){
+      var p = toPx(e);
+      eraseStamp(p.x, p.y, baseBrush());
+      lastPt = p;
+      try { stage.setPointerCapture(e.pointerId); } catch(_){}
+    });
+
+    stage.addEventListener("pointermove", function(e){
+      var p = toPx(e);
+      if (lastPt){ eraseLine(lastPt.x, lastPt.y, p.x, p.y); }
+      else { eraseStamp(p.x, p.y, baseBrush()); }
+      lastPt = p;
+    });
+
+    ["pointerup","pointercancel","pointerleave","pointerout"].forEach(function(type){
+      stage.addEventListener(type, function(){ lastPt = null; });
+    });
 
     function allErased(){
       pctx.clearRect(0,0,probe.width,probe.height);
@@ -131,20 +175,15 @@
       return true;
     }
 
-    stage.addEventListener("pointermove", function(e){
-      var p = toPx(e);
-      eraseAt(p.x, p.y);
-    });
-
-    addEventListener("keydown", function(e){ if ((e.key || "").toLowerCase() === "r") drawText(); });
+    addEventListener("keydown", function(e){ if ((e.key||"").toLowerCase()==="r") drawText(); });
 
     function loop(ts){
       paint();
       if (!lastCheck || ts - lastCheck > 100){
         lastCheck = ts;
         if (allErased()){
-          inverted = !inverted;  // flip background state
-          drawText();            // redraw full text in the opposite color
+          inverted = !inverted;  // flip background color
+          drawText();            // redraw text in opposite color
         }
       }
       requestAnimationFrame(loop);
