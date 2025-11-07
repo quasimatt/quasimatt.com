@@ -134,18 +134,17 @@
       var p = s0.pctx;
       p.clearRect(0,0,s0.probe.width,s0.probe.height);
       p.drawImage(s0.textCanvas, 0, 0, s0.probe.width, s0.probe.height);
-      var data = p.getImageData(0,0,s0.probe.width,s0.probe.height).data;
+      var data = p.getImageData(0,0,s0.probe.width, s0.probe.height).data;
       for (var i=3;i<data.length;i+=4){ if (data[i]!==0) return false; }
       return true;
     }
 
-    // pointer for slide 0
     function toPx(evt){ var r=stage.getBoundingClientRect(); return {x:(evt.clientX-r.left)*dpr, y:(evt.clientY-r.top)*dpr}; }
     stage.addEventListener('pointerdown', function(e){ if (slideIndex!==0) return; var p=toPx(e); s0_eraseStamp(p.x,p.y,s0_brushRadius()); s0.lastPt=p; try{stage.setPointerCapture(e.pointerId);}catch(_){}});    
     stage.addEventListener('pointermove', function(e){ if (slideIndex!==0) return; var p=toPx(e); if (s0.lastPt) s0_eraseLine(s0.lastPt.x,s0.lastPt.y,p.x,p.y); else s0_eraseStamp(p.x,p.y,s0_brushRadius()); s0.lastPt=p; });
     ;['pointerup','pointercancel','pointerleave','pointerout'].forEach(function(t){ stage.addEventListener(t, function(){ s0.lastPt=null; }); });
 
-    // ===== Slide 1: World scroll left; invert trail; two text layers =====
+    // ===== Slide 1: world scroll + invert trail; two layers =====
     var s1 = {
       mask: document.createElement('canvas'), // invert trail (white -> difference)
       mctx: null,
@@ -246,21 +245,21 @@
     }
 
     function slide1_render(){
-      // base world
+      // base world (black bg)
       ctx.setTransform(1,0,0,1,0,0);
       ctx.fillStyle = '#000';
       ctx.fillRect(0,0,stage.width,stage.height);
 
-      // layer A: white sentences (invertible)
+      // Layer A: white sentences (invertible)
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
       for (var i=0;i<s1.itemsWhite.length;i++){ var it = s1.itemsWhite[i]; ctx.font = it.font; ctx.fillText(it.text, it.x, it.y); }
 
-      // invert mask (affects current pixels only)
+      // apply invert mask (affects only what's drawn so far)
       ctx.globalCompositeOperation = 'difference';
       ctx.drawImage(s1.mask, 0, 0);
       ctx.globalCompositeOperation = 'source-over';
 
-      // layer B: black sentences (not inverted), drawn after mask so they stay black on white-revealed trail
+      // Layer B: black sentences (not inverted), drawn after mask so they must be uncovered by the trail
       ctx.fillStyle = '#000';
       for (var j=0;j<s1.itemsBlack.length;j++){ var bt = s1.itemsBlack[j]; ctx.font = bt.font; ctx.fillText(bt.text, bt.x, bt.y); }
     }
