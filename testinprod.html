@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>together — slides skeleton</title>
+  <title>together</title>
   <style>
     html, body { margin:0; height:100%; background:#000; }
     body { font-family:"Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif; }
@@ -14,11 +14,10 @@
   <canvas id="stage" aria-label="Interactive art canvas"></canvas>
   <script>
   (function(){
-    // ============================
-    // Core app + slide lifecycle
-    // ============================
+    // =========== Core app / slide lifecycle ===========
     const stage = document.getElementById('stage');
     const ctx = stage.getContext('2d');
+
     const app = {
       stage, ctx,
       dpr: Math.max(1, Math.min(2, window.devicePixelRatio || 1)),
@@ -26,66 +25,61 @@
       now: 0, dt: 0,
       slideIndex: 0,
       slides: [],
-      // helpers
+      currentSlide: null,
       setSize(){
         this.w = Math.floor(innerWidth * this.dpr);
         this.h = Math.floor(innerHeight * this.dpr);
         stage.width = this.w; stage.height = this.h;
         stage.style.width = innerWidth + 'px';
         stage.style.height = innerHeight + 'px';
-        if (this.currentSlide && this.currentSlide.onResize) this.currentSlide.onResize(this);
+        this.currentSlide?.onResize?.(this);
       },
       goto(i){
-        if (this.currentSlide && this.currentSlide.destroy) this.currentSlide.destroy(this);
+        this.currentSlide?.destroy?.(this);
         this.slideIndex = (i % this.slides.length + this.slides.length) % this.slides.length;
         this.currentSlide = this.slides[this.slideIndex];
-        if (this.currentSlide && this.currentSlide.init) this.currentSlide.init(this);
+        this.currentSlide?.init?.(this);
       },
       next(){ this.goto(this.slideIndex + 1); }
     };
 
-    // Global input dispatch → active slide only
+    // Global input → routed ONLY to active slide
     const pointer = { x:0, y:0, down:false };
-    function toPx(e){ const r = stage.getBoundingClientRect(); return { x:(e.clientX - r.left)*app.dpr, y:(e.clientY - r.top)*app.dpr }; }
+    function toPx(e){ const r = stage.getBoundingClientRect(); return { x:(e.clientX-r.left)*app.dpr, y:(e.clientY-r.top)*app.dpr }; }
 
-    stage.addEventListener('pointerdown', e=>{ const p=toPx(e); pointer.x=p.x; pointer.y=p.y; pointer.down=true; if(app.currentSlide?.onPointerDown) app.currentSlide.onPointerDown(e, pointer, app); });
-    stage.addEventListener('pointermove', e=>{ const p=toPx(e); pointer.x=p.x; pointer.y=p.y; if(app.currentSlide?.onPointerMove) app.currentSlide.onPointerMove(e, pointer, app); });
-    ['pointerup','pointercancel','pointerleave','pointerout'].forEach(t=> stage.addEventListener(t, e=>{ pointer.down=false; if(app.currentSlide?.onPointerUp) app.currentSlide.onPointerUp(e, pointer, app); }));
+    stage.addEventListener('pointerdown', e => {
+      const p = toPx(e); pointer.x=p.x; pointer.y=p.y; pointer.down=true;
+      app.currentSlide?.onPointerDown?.(e, pointer, app);
+      try{ stage.setPointerCapture(e.pointerId); }catch(_){}
+    });
+    stage.addEventListener('pointermove', e => {
+      const p = toPx(e); pointer.x=p.x; pointer.y=p.y;
+      app.currentSlide?.onPointerMove?.(e, pointer, app);
+    });
+    ['pointerup','pointercancel','pointerleave','pointerout'].forEach(t => {
+      stage.addEventListener(t, e => { pointer.down=false; app.currentSlide?.onPointerUp?.(e, pointer, app); });
+    });
 
-    // Click anywhere always advances
-    addEventListener('click', ()=> app.next());
+    // Click anywhere: always advance
+    addEventListener('click', () => app.next());
 
-    // Keyboard routing (optional)
-    addEventListener('keydown', e=>{ if(app.currentSlide?.onKeyDown) app.currentSlide.onKeyDown(e, app); });
+    // Optional keys
+    addEventListener('keydown', e => app.currentSlide?.onKeyDown?.(e, app));
 
     // Resize
-    addEventListener('resize', ()=> app.setSize(), { passive:true });
+    addEventListener('resize', () => app.setSize(), { passive:true });
 
-    // ============================
-    // Slide interface (reference)
-    // {
-    //   name: string,
-    //   init(app) {},
-    //   update(dt, app) {},
-    //   render(ctx, app) {},
-    //   shouldAdvance(app) { return false; },
-    //   onResize(app) {}, onPointerDown/Move/Up(e, ptr, app) {}, onKeyDown(e, app) {},
-    //   destroy(app) {}
-    // }
-    // ============================
-
-    // ========== Demo Slide A: Erase-to-clear (self-contained) ==========
+    // =========== Slide A: Erase-to-clear (hover erase) ===========
     const SlideErase = {
       name: 'erase-clear',
-      // private state
       textCanvas: document.createElement('canvas'),
       tctx: null,
       probe: document.createElement('canvas'),
       pctx: null,
       last: null,
-      erased: false,
-      MAIN: "i don't think i belong here but i don't know where to go",
-      SUB:  "by quasimatt",
+      cleared: false,
+      MAIN: 'together',
+      SUB: '',
 
       init(app){
         this.tctx = this.textCanvas.getContext('2d');
@@ -93,102 +87,160 @@
         this.probe.width = 160; this.probe.height = 90;
         this.onResize(app);
         this.drawText(app);
+        this.cleared = false;
       },
       onResize(app){
-        this.textCanvas.width = app.w; this.textCanvas.height = app.h;
+        this.textCanvas.width = app.w;
+        this.textCanvas.height = app.h;
+        this.drawText(app);
       },
       brushRadius(app){ return Math.max(60, Math.min(240, Math.floor(app.w * 0.04 * 1.5))); },
       wrapLines(c, text, font, maxW){
-        c.font = font; const words = text.split(/\s+/); const lines=[]; let line='';
-        for (let w of words){ const test=line? line+' '+w : w; if (c.measureText(test).width <= maxW || !line) line=test; else { lines.push(line); line=w; }}
-        if (line) lines.push(line); return lines;
+        c.font = font; const words = text.split(/\s+/); const lines=[]; let ln='';
+        for (const w of words){ const test = ln ? (ln+' '+w) : w;
+          if (c.measureText(test).width <= maxW || !ln) ln=test; else { lines.push(ln); ln=w; }
+        } if (ln) lines.push(ln); return lines;
       },
       drawText(app){
         const c=this.tctx, W=this.textCanvas.width, H=this.textCanvas.height;
         c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,W,H);
-        const main = Math.max(26, Math.min(120, Math.floor(W*0.055)));
+        const main = Math.max(26, Math.min(160, Math.floor(W*0.12)));
         const sub  = Math.max(12, Math.min(34,  Math.floor(W*0.02)));
         c.fillStyle = '#fff'; c.textAlign='center'; c.textBaseline='middle';
-        const mainFont = `700 ${main}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+        const mainFont = `800 ${main}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
         const subFont  = `400 ${sub}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
-        const lines = this.wrapLines(c, this.MAIN, mainFont, Math.floor(W*0.8));
-        const gap = Math.floor(main*0.35);
-        const blockH = lines.length*main + (lines.length-1)*gap + (sub*1.6);
+        const lines = this.wrapLines(c, this.MAIN, mainFont, Math.floor(W*0.9));
+        const gap = Math.floor(main*0.2);
+        const blockH = lines.length*main + (lines.length-1)*gap + (this.SUB? sub*1.6:0);
         let y = (H - blockH)/2 + main/2;
-        c.font = mainFont; for (let L of lines){ c.fillText(L, W/2, y); y += main + gap; }
-        c.font = subFont; c.fillText(this.SUB, W/2, y + sub*0.8);
-        this.erased = false;
+        c.font = mainFont; for (const L of lines){ c.fillText(L, W/2, y); y += main + gap; }
+        if (this.SUB){ c.font = subFont; c.fillText(this.SUB, W/2, y + sub*0.8); }
       },
       stamp(app, x, y){
         const r = this.brushRadius(app);
         const g = this.tctx.createRadialGradient(x,y,0,x,y,r);
-        g.addColorStop(0.0,'rgba(0,0,0,1)'); g.addColorStop(0.6,'rgba(0,0,0,0.6)'); g.addColorStop(1.0,'rgba(0,0,0,0)');
-        this.tctx.globalCompositeOperation='destination-out';
-        this.tctx.fillStyle=g; this.tctx.beginPath(); this.tctx.arc(x,y,r,0,Math.PI*2); this.tctx.fill();
-        this.tctx.globalCompositeOperation='source-over';
+        g.addColorStop(0.0,'rgba(0,0,0,1)');
+        g.addColorStop(0.6,'rgba(0,0,0,0.6)');
+        g.addColorStop(1.0,'rgba(0,0,0,0)');
+        this.tctx.globalCompositeOperation = 'destination-out';
+        this.tctx.fillStyle = g;
+        this.tctx.beginPath(); this.tctx.arc(x,y,r,0,Math.PI*2); this.tctx.fill();
+        this.tctx.globalCompositeOperation = 'source-over';
       },
       eraseLine(app, a, b){
-        const r = this.brushRadius(app); const dx=b.x-a.x, dy=b.y-a.y; const d = Math.hypot(dx,dy);
+        const r = this.brushRadius(app), dx=b.x-a.x, dy=b.y-a.y, d=Math.hypot(dx,dy);
         if (!d){ this.stamp(app, b.x,b.y); return; }
-        const step = Math.max(1, r*0.5); const n = Math.ceil(d/step);
+        const step = Math.max(1, r*0.5), n = Math.ceil(d/step);
         for (let i=0;i<=n;i++){ const t=i/n; this.stamp(app, a.x+dx*t, a.y+dy*t); }
       },
-      checkCleared(){
+      allErased(){
         const p=this.pctx; p.clearRect(0,0,this.probe.width,this.probe.height);
         p.drawImage(this.textCanvas,0,0,this.probe.width,this.probe.height);
         const data=p.getImageData(0,0,this.probe.width,this.probe.height).data;
         for (let i=3;i<data.length;i+=4){ if (data[i]!==0) return false; }
         return true;
       },
-      update(dt, app){
-        // nothing heavy; advancement condition checked in shouldAdvance
-      },
+      update(dt, app){ /* no-op */ },
       render(ctx, app){
-        // black background + composed text bitmap
-        ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle='#000'; ctx.fillRect(0,0,app.w,app.h);
+        ctx.setTransform(1,0,0,1,0,0);
+        ctx.fillStyle='#000'; ctx.fillRect(0,0,app.w,app.h);
         ctx.drawImage(this.textCanvas, 0, 0);
       },
-      shouldAdvance(app){ if (!this.erased && this.checkCleared()){ this.erased = true; return true; } return false; },
-      onPointerDown(e, ptr, app){ this.last = {x:ptr.x, y:ptr.y}; this.stamp(app, ptr.x, ptr.y); },
-      onPointerMove(e, ptr, app){ if (!this.last) return; this.eraseLine(app, this.last, {x:ptr.x,y:ptr.y}); this.last = {x:ptr.x,y:ptr.y}; },
-      onPointerUp(){ this.last = null; },
-      destroy(){ this.last=null; }
+      shouldAdvance(app){ return this.allErased(); },
+      onPointerDown(e, ptr, app){ this.last = {x:ptr.x,y:ptr.y}; this.stamp(app, ptr.x, ptr.y); },
+      onPointerMove(e, ptr, app){
+        // Hover erase — no need to hold the button
+        if (this.last) this.eraseLine(app, this.last, {x:ptr.x,y:ptr.y});
+        else this.stamp(app, ptr.x, ptr.y);
+        this.last = {x:ptr.x,y:ptr.y};
+      },
+      onPointerUp(){ /* keep last so fast moves keep interpolating */ },
+      destroy(){ this.last = null; }
     };
 
-    // ========== Demo Slide B: Timed marquee (simple scaffold) ==========
+    // ========== Slide B: Marquee (self-contained; splits on . or ?) ==========
     const SlideMarquee = {
       name: 'marquee',
-      t: 0, speed: 120, lines: [],
+      speed: 120, // px/sec @ dpr=1
+      items: [],
+      fontSize: 24,
+      timer: 0,
+      // Example copy. Update freely.
+      text: "we got drunk on christmas. i told you i felt like the bar was too high? we can't know people the way we know ourselves. we feel lonely because we imagine a closeness we can never reach? we need to lower our standards.",
+
       init(app){
-        this.t = 0; this.lines = [];
-        const textA = "we got drunk on christmas. i told you i felt like the bar was too high.";
-        // Split sentences on . or ? (keeping punctuation)
-        const sentences = textA.split(/(?<=[.?])\s+/).filter(Boolean);
-        const fs = Math.max(18, Math.min(42, Math.floor(app.w*0.02)));
-        for (let i=0;i<sentences.length;i++){
-          const y = Math.floor( (app.h*0.15) + i*(fs*1.8) );
-          this.lines.push({ text: sentences[i], x: app.w + i*60, y, fs });
+        this.items = []; this.timer = 0; this.onResize(app);
+        this.nextIndex = 0;
+        this.spawnNext(app, true); // seed first sentence
+      },
+      onResize(app){ this.fontSize = Math.max(18, Math.min(42, Math.floor(app.w * 0.02))); },
+      sentences(){
+        // Split on . or ? while keeping punctuation
+        return this.text.split(/(?<=[.?])\s+/).map(s => s.trim()).filter(Boolean);
+      },
+      measure(ctx, text, fs){
+        ctx.font = `400 ${fs}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+        return Math.ceil(ctx.measureText(text).width);
+      },
+      pickY(app){
+        const margin = Math.max(40, Math.floor(app.h*0.1));
+        const minGap = Math.max(32, Math.floor(this.fontSize*1.2));
+        for (let tries=0; tries<16; tries++){
+          const y = Math.floor(Math.random()*(app.h - 2*margin)) + margin;
+          let clash = false;
+          for (const it of this.items){ if (Math.abs(it.y - y) < minGap){ clash = true; break; } }
+          if (!clash) return y;
+        }
+        return Math.floor(app.h/2);
+      },
+      spawnNext(app, initial){
+        const sents = this.sentences();
+        if (!sents.length) return;
+        if (this.nextIndex >= sents.length) this.nextIndex = 0;
+        const text = sents[this.nextIndex++];
+        const fs = this.fontSize;
+        const w = this.measure(ctx, text, fs);
+        const y = this.pickY(app);
+        const x = app.w + (initial ? 0 : Math.floor(fs*0.5));
+        this.items.push({ text, x, y, w, fs });
+      },
+      update(dt, app){
+        this.timer += dt;
+        const dx = this.speed * app.dpr * dt;
+        for (const it of this.items) it.x -= dx;
+        // Spawn when the end of the last sentence appears on screen
+        const last = this.items[this.items.length-1];
+        if (last && (last.x + last.w) <= app.w) this.spawnNext(app, false);
+        // Cleanup
+        while (this.items.length && this.items[0].x + this.items[0].w < 0) this.items.shift();
+      },
+      render(ctx, app){
+        ctx.setTransform(1,0,0,1,0,0);
+        ctx.fillStyle='#000'; ctx.fillRect(0,0,app.w,app.h);
+        ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle='#fff';
+        for (const it of this.items){
+          ctx.font = `400 ${it.fs}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+          ctx.fillText(it.text, it.x, it.y);
         }
       },
-      onResize(app){ /* recompute y positions if desired */ },
-      update(dt, app){ this.t += dt; for (let L of this.lines){ L.x -= this.speed*app.dpr*dt; } },
-      render(ctx, app){
-        ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle='#000'; ctx.fillRect(0,0,app.w,app.h);
-        ctx.fillStyle='#fff'; ctx.textAlign='left'; ctx.textBaseline='middle';
-        for (let L of this.lines){ ctx.font = `400 ${L.fs}px \"Helvetica Neue\", Helvetica, Arial, system-ui, -apple-system, sans-serif`; ctx.fillText(L.text, L.x, L.y); }
-      },
-      shouldAdvance(app){ return this.t > 8; }
+      shouldAdvance(app){ return this.timer > 8; },
+      destroy(){ this.items.length = 0; }
     };
 
-    // Register slides here (order = sequence)
+    // Register slides in sequence — each is fully self-contained
     app.slides = [ SlideErase, SlideMarquee ];
 
     // Main loop (only active slide runs)
     let tPrev = 0;
     function tick(ts){
-      if (!tPrev) tPrev = ts; app.dt = Math.min(0.05, (ts - tPrev)/1000); tPrev = ts; app.now = ts/1000;
+      if (!tPrev) tPrev = ts;
+      app.dt = Math.min(0.05, (ts - tPrev)/1000); tPrev = ts; app.now = ts/1000;
       const s = app.currentSlide;
-      if (s){ s.update?.(app.dt, app); s.render?.(ctx, app); if (s.shouldAdvance?.(app)) app.next(); }
+      if (s){
+        s.update?.(app.dt, app);
+        s.render?.(ctx, app);
+        if (s.shouldAdvance?.(app)) app.next();
+      }
       requestAnimationFrame(tick);
     }
 
