@@ -1,1 +1,202 @@
-swag
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>together — slides skeleton</title>
+  <style>
+    html, body { margin:0; height:100%; background:#000; }
+    body { font-family:"Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif; }
+    canvas { display:block; width:100%; height:100%; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" aria-label="Interactive art canvas"></canvas>
+  <script>
+  (function(){
+    // ============================
+    // Core app + slide lifecycle
+    // ============================
+    const stage = document.getElementById('stage');
+    const ctx = stage.getContext('2d');
+    const app = {
+      stage, ctx,
+      dpr: Math.max(1, Math.min(2, window.devicePixelRatio || 1)),
+      w: 0, h: 0,
+      now: 0, dt: 0,
+      slideIndex: 0,
+      slides: [],
+      // helpers
+      setSize(){
+        this.w = Math.floor(innerWidth * this.dpr);
+        this.h = Math.floor(innerHeight * this.dpr);
+        stage.width = this.w; stage.height = this.h;
+        stage.style.width = innerWidth + 'px';
+        stage.style.height = innerHeight + 'px';
+        if (this.currentSlide && this.currentSlide.onResize) this.currentSlide.onResize(this);
+      },
+      goto(i){
+        if (this.currentSlide && this.currentSlide.destroy) this.currentSlide.destroy(this);
+        this.slideIndex = (i % this.slides.length + this.slides.length) % this.slides.length;
+        this.currentSlide = this.slides[this.slideIndex];
+        if (this.currentSlide && this.currentSlide.init) this.currentSlide.init(this);
+      },
+      next(){ this.goto(this.slideIndex + 1); }
+    };
+
+    // Global input dispatch → active slide only
+    const pointer = { x:0, y:0, down:false };
+    function toPx(e){ const r = stage.getBoundingClientRect(); return { x:(e.clientX - r.left)*app.dpr, y:(e.clientY - r.top)*app.dpr }; }
+
+    stage.addEventListener('pointerdown', e=>{ const p=toPx(e); pointer.x=p.x; pointer.y=p.y; pointer.down=true; if(app.currentSlide?.onPointerDown) app.currentSlide.onPointerDown(e, pointer, app); });
+    stage.addEventListener('pointermove', e=>{ const p=toPx(e); pointer.x=p.x; pointer.y=p.y; if(app.currentSlide?.onPointerMove) app.currentSlide.onPointerMove(e, pointer, app); });
+    ['pointerup','pointercancel','pointerleave','pointerout'].forEach(t=> stage.addEventListener(t, e=>{ pointer.down=false; if(app.currentSlide?.onPointerUp) app.currentSlide.onPointerUp(e, pointer, app); }));
+
+    // Click anywhere always advances
+    addEventListener('click', ()=> app.next());
+
+    // Keyboard routing (optional)
+    addEventListener('keydown', e=>{ if(app.currentSlide?.onKeyDown) app.currentSlide.onKeyDown(e, app); });
+
+    // Resize
+    addEventListener('resize', ()=> app.setSize(), { passive:true });
+
+    // ============================
+    // Slide interface (reference)
+    // {
+    //   name: string,
+    //   init(app) {},
+    //   update(dt, app) {},
+    //   render(ctx, app) {},
+    //   shouldAdvance(app) { return false; },
+    //   onResize(app) {}, onPointerDown/Move/Up(e, ptr, app) {}, onKeyDown(e, app) {},
+    //   destroy(app) {}
+    // }
+    // ============================
+
+    // ========== Demo Slide A: Erase-to-clear (self-contained) ==========
+    const SlideErase = {
+      name: 'erase-clear',
+      // private state
+      textCanvas: document.createElement('canvas'),
+      tctx: null,
+      probe: document.createElement('canvas'),
+      pctx: null,
+      last: null,
+      erased: false,
+      MAIN: "i don't think i belong here but i don't know where to go",
+      SUB:  "by quasimatt",
+
+      init(app){
+        this.tctx = this.textCanvas.getContext('2d');
+        this.pctx = this.probe.getContext('2d', { willReadFrequently: true });
+        this.probe.width = 160; this.probe.height = 90;
+        this.onResize(app);
+        this.drawText(app);
+      },
+      onResize(app){
+        this.textCanvas.width = app.w; this.textCanvas.height = app.h;
+      },
+      brushRadius(app){ return Math.max(60, Math.min(240, Math.floor(app.w * 0.04 * 1.5))); },
+      wrapLines(c, text, font, maxW){
+        c.font = font; const words = text.split(/\s+/); const lines=[]; let line='';
+        for (let w of words){ const test=line? line+' '+w : w; if (c.measureText(test).width <= maxW || !line) line=test; else { lines.push(line); line=w; }}
+        if (line) lines.push(line); return lines;
+      },
+      drawText(app){
+        const c=this.tctx, W=this.textCanvas.width, H=this.textCanvas.height;
+        c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,W,H);
+        const main = Math.max(26, Math.min(120, Math.floor(W*0.055)));
+        const sub  = Math.max(12, Math.min(34,  Math.floor(W*0.02)));
+        c.fillStyle = '#fff'; c.textAlign='center'; c.textBaseline='middle';
+        const mainFont = `700 ${main}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+        const subFont  = `400 ${sub}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+        const lines = this.wrapLines(c, this.MAIN, mainFont, Math.floor(W*0.8));
+        const gap = Math.floor(main*0.35);
+        const blockH = lines.length*main + (lines.length-1)*gap + (sub*1.6);
+        let y = (H - blockH)/2 + main/2;
+        c.font = mainFont; for (let L of lines){ c.fillText(L, W/2, y); y += main + gap; }
+        c.font = subFont; c.fillText(this.SUB, W/2, y + sub*0.8);
+        this.erased = false;
+      },
+      stamp(app, x, y){
+        const r = this.brushRadius(app);
+        const g = this.tctx.createRadialGradient(x,y,0,x,y,r);
+        g.addColorStop(0.0,'rgba(0,0,0,1)'); g.addColorStop(0.6,'rgba(0,0,0,0.6)'); g.addColorStop(1.0,'rgba(0,0,0,0)');
+        this.tctx.globalCompositeOperation='destination-out';
+        this.tctx.fillStyle=g; this.tctx.beginPath(); this.tctx.arc(x,y,r,0,Math.PI*2); this.tctx.fill();
+        this.tctx.globalCompositeOperation='source-over';
+      },
+      eraseLine(app, a, b){
+        const r = this.brushRadius(app); const dx=b.x-a.x, dy=b.y-a.y; const d = Math.hypot(dx,dy);
+        if (!d){ this.stamp(app, b.x,b.y); return; }
+        const step = Math.max(1, r*0.5); const n = Math.ceil(d/step);
+        for (let i=0;i<=n;i++){ const t=i/n; this.stamp(app, a.x+dx*t, a.y+dy*t); }
+      },
+      checkCleared(){
+        const p=this.pctx; p.clearRect(0,0,this.probe.width,this.probe.height);
+        p.drawImage(this.textCanvas,0,0,this.probe.width,this.probe.height);
+        const data=p.getImageData(0,0,this.probe.width,this.probe.height).data;
+        for (let i=3;i<data.length;i+=4){ if (data[i]!==0) return false; }
+        return true;
+      },
+      update(dt, app){
+        // nothing heavy; advancement condition checked in shouldAdvance
+      },
+      render(ctx, app){
+        // black background + composed text bitmap
+        ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle='#000'; ctx.fillRect(0,0,app.w,app.h);
+        ctx.drawImage(this.textCanvas, 0, 0);
+      },
+      shouldAdvance(app){ if (!this.erased && this.checkCleared()){ this.erased = true; return true; } return false; },
+      onPointerDown(e, ptr, app){ this.last = {x:ptr.x, y:ptr.y}; this.stamp(app, ptr.x, ptr.y); },
+      onPointerMove(e, ptr, app){ if (!this.last) return; this.eraseLine(app, this.last, {x:ptr.x,y:ptr.y}); this.last = {x:ptr.x,y:ptr.y}; },
+      onPointerUp(){ this.last = null; },
+      destroy(){ this.last=null; }
+    };
+
+    // ========== Demo Slide B: Timed marquee (simple scaffold) ==========
+    const SlideMarquee = {
+      name: 'marquee',
+      t: 0, speed: 120, lines: [],
+      init(app){
+        this.t = 0; this.lines = [];
+        const textA = "we got drunk on christmas. i told you i felt like the bar was too high.";
+        // Split sentences on . or ? (keeping punctuation)
+        const sentences = textA.split(/(?<=[.?])\s+/).filter(Boolean);
+        const fs = Math.max(18, Math.min(42, Math.floor(app.w*0.02)));
+        for (let i=0;i<sentences.length;i++){
+          const y = Math.floor( (app.h*0.15) + i*(fs*1.8) );
+          this.lines.push({ text: sentences[i], x: app.w + i*60, y, fs });
+        }
+      },
+      onResize(app){ /* recompute y positions if desired */ },
+      update(dt, app){ this.t += dt; for (let L of this.lines){ L.x -= this.speed*app.dpr*dt; } },
+      render(ctx, app){
+        ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle='#000'; ctx.fillRect(0,0,app.w,app.h);
+        ctx.fillStyle='#fff'; ctx.textAlign='left'; ctx.textBaseline='middle';
+        for (let L of this.lines){ ctx.font = `400 ${L.fs}px \"Helvetica Neue\", Helvetica, Arial, system-ui, -apple-system, sans-serif`; ctx.fillText(L.text, L.x, L.y); }
+      },
+      shouldAdvance(app){ return this.t > 8; }
+    };
+
+    // Register slides here (order = sequence)
+    app.slides = [ SlideErase, SlideMarquee ];
+
+    // Main loop (only active slide runs)
+    let tPrev = 0;
+    function tick(ts){
+      if (!tPrev) tPrev = ts; app.dt = Math.min(0.05, (ts - tPrev)/1000); tPrev = ts; app.now = ts/1000;
+      const s = app.currentSlide;
+      if (s){ s.update?.(app.dt, app); s.render?.(ctx, app); if (s.shouldAdvance?.(app)) app.next(); }
+      requestAnimationFrame(tick);
+    }
+
+    // Boot
+    app.setSize();
+    app.goto(0);
+    requestAnimationFrame(tick);
+  })();
+  </script>
+</body>
+</html>
