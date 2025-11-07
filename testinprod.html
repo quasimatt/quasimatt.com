@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>quasi – eraser text</title>
+  <style>
+    :root { --bg:#000; --fg:#fff; }
+    html, body { height:100%; margin:0; background:var(--bg); }
+    body { font-family: "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif; }
+    canvas { display:block; width:100%; height:100%; }
+    .hint { position:fixed; left:1rem; bottom:1rem; color:#777; font-size:12px; user-select:none; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" aria-label="Interactive text canvas"></canvas>
+  <div class="hint">Move your mouse over the letters to erase them • Press R to reset</div>
+  <script>
+  // Wrapped in an IIFE to avoid globals (obfuscate/minify further in build if desired)
+  (() => {
+    const $ = (sel) => document.querySelector(sel);
+    const stage = $('#stage');
+    const sctx = stage.getContext('2d');
+
+    // Offscreen canvas holds the white text; we erase from this bitmap with a soft brush
+    let textCanvas = document.createElement('canvas');
+    let tctx = textCanvas.getContext('2d');
+
+    let dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    let dirty = true; // marks when we need to repaint the screen
+
+    const copyProps = () => {
+      // Fit stage and text canvas to viewport @ DPR
+      const w = Math.floor(innerWidth * dpr);
+      const h = Math.floor(innerHeight * dpr);
+      stage.width = w; stage.height = h;
+      textCanvas.width = w; textCanvas.height = h;
+      stage.style.width = innerWidth + 'px';
+      stage.style.height = innerHeight + 'px';
+      dirty = true;
+    };
+
+    const drawText = () => {
+      // Clear and render the two lines of text centered
+      tctx.setTransform(1,0,0,1,0,0);
+      tctx.clearRect(0,0,textCanvas.width,textCanvas.height);
+
+      const W = textCanvas.width;
+      const H = textCanvas.height;
+
+      // Dynamic font sizing relative to viewport
+      const mainSize = Math.max(28, Math.min(140, Math.floor(W * 0.07)));
+      const subSize  = Math.max(12, Math.min(36,  Math.floor(W * 0.02)));
+
+      tctx.fillStyle = '#fff';
+      tctx.textAlign = 'center';
+      tctx.textBaseline = 'middle';
+
+      // Main title
+      tctx.font = `700 ${mainSize}px \"Helvetica Neue\", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+      const main = "i don't belong here";
+
+      // Subtext
+      tctx.font = `400 ${subSize}px \"Helvetica Neue\", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+      const sub = 'by quasimatt';
+
+      // Measure vertical spacing with line gap
+      const gap = Math.floor(mainSize * 0.5);
+
+      // Draw main
+      tctx.font = `700 ${mainSize}px \"Helvetica Neue\", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+      tctx.fillText(main, W/2, H/2 - gap/2);
+
+      // Draw sub
+      tctx.font = `400 ${subSize}px \"Helvetica Neue\", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+      tctx.fillText(sub, W/2, H/2 + mainSize/2);
+
+      dirty = true;
+    };
+
+    const paint = () => {
+      if (!dirty) return;
+      dirty = false;
+      // Black background
+      sctx.setTransform(1,0,0,1,0,0);
+      sctx.fillStyle = '#000';
+      sctx.fillRect(0,0,stage.width,stage.height);
+      // Composite the current state of the text bitmap (with holes we've erased)
+      sctx.drawImage(textCanvas, 0, 0);
+    };
+
+    // Soft eraser centered at (x, y) in device pixels
+    const eraseAt = (x, y) => {
+      const r = Math.max(40, Math.min(160, Math.floor(stage.width * 0.04))); // radius scales with viewport
+      const grad = tctx.createRadialGradient(x, y, 0, x, y, r);
+      // Strong at center, feathered edge
+      grad.addColorStop(0.0, 'rgba(0,0,0,1)');
+      grad.addColorStop(0.6, 'rgba(0,0,0,0.6)');
+      grad.addColorStop(1.0, 'rgba(0,0,0,0)');
+
+      tctx.globalCompositeOperation = 'destination-out';
+      tctx.fillStyle = grad;
+      tctx.beginPath();
+      tctx.arc(x, y, r, 0, Math.PI * 2);
+      tctx.fill();
+      tctx.globalCompositeOperation = 'source-over';
+
+      dirty = true;
+    };
+
+    // Convert DOM coords to device-pixel coords
+    const toPx = (evt) => {
+      const rect = stage.getBoundingClientRect();
+      const x = (evt.clientX - rect.left) * dpr;
+      const y = (evt.clientY - rect.top) * dpr;
+      return { x, y };
+    };
+
+    // Pointer handling
+    let isPointerDown = false;
+    stage.addEventListener('pointerdown', (e) => { isPointerDown = true; stage.setPointerCapture(e.pointerId); const {x,y}=toPx(e); eraseAt(x,y); });
+    stage.addEventListener('pointerup',   (e) => { isPointerDown = false; });
+    stage.addEventListener('pointermove', (e) => {
+      const { x, y } = toPx(e);
+      // Always erase when moving; comment the next line to require pressing
+      eraseAt(x, y);
+    });
+
+    // Keyboard: R to reset
+    addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() === 'r') {
+        drawText();
+        dirty = true;
+      }
+    });
+
+    // Resize / DPR changes
+    const setup = () => { copyProps(); drawText(); dirty = true; };
+    addEventListener('resize', setup, { passive:true });
+
+    // Render loop (only paints when dirty)
+    const loop = () => { paint(); requestAnimationFrame(loop); };
+
+    // Initialize
+    setup();
+    loop();
+  })();
+  </script>
+</body>
+</html>
