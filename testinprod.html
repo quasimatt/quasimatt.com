@@ -19,12 +19,12 @@
     const sctx = stage.getContext('2d');
 
     // Offscreen: text-only (white on transparent)
-    let textCanvas = document.createElement('canvas');
-    let tctx = textCanvas.getContext('2d');
+    const textCanvas = document.createElement('canvas');
+    const tctx = textCanvas.getContext('2d');
 
     // Offscreen: invert mask (white = invert, transparent = normal)
-    let maskCanvas = document.createElement('canvas');
-    let mctx = maskCanvas.getContext('2d');
+    const maskCanvas = document.createElement('canvas');
+    const mctx = maskCanvas.getContext('2d');
 
     let dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     let dirty = true;
@@ -73,15 +73,15 @@
       const subSize  = Math.max(12, Math.min(34,  Math.floor(W * 0.02)));
 
       const main = "i don't think i belong here but i don't know where to go";
-      const sub  = 'by quasimatt';
+      const sub  = "by quasimatt";
 
-      tctx.fillStyle = '#fff';
-      tctx.textAlign = 'center';
-      tctx.textBaseline = 'middle';
+      tctx.fillStyle = "#fff";
+      tctx.textAlign = "center";
+      tctx.textBaseline = "middle";
 
       // Prepare lines for main text
-      const mainFontBold = `700 ${mainSize}px \"Helvetica Neue\", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
-      const subFont      = `400 ${subSize}px \"Helvetica Neue\", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+      const mainFontBold = `700 ${mainSize}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+      const subFont      = `400 ${subSize}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
 
       const maxTextWidth = Math.floor(W * 0.8);
       const mainLines = wrapLines(tctx, main, mainFontBold, maxTextWidth);
@@ -94,4 +94,67 @@
       tctx.font = mainFontBold;
       for (const ln of mainLines) {
         tctx.fillText(ln, W/2, y);
-        y
+        y += mainSize + lineGap;
+      }
+
+      tctx.font = subFont;
+      tctx.fillText(sub, W/2, y + subSize*0.8);
+
+      dirty = true;
+    };
+
+    const paint = () => {
+      if (!dirty) return;
+      dirty = false;
+
+      // Base: black background + white text
+      sctx.setTransform(1,0,0,1,0,0);
+      sctx.fillStyle = "#000";
+      sctx.fillRect(0,0,stage.width,stage.height);
+      sctx.drawImage(textCanvas, 0, 0);
+
+      // Apply inversion where mask is white (difference with white == invert)
+      sctx.globalCompositeOperation = "difference";
+      sctx.drawImage(maskCanvas, 0, 0);
+      sctx.globalCompositeOperation = "source-over";
+    };
+
+    // Toggle (XOR) soft mask at x,y in device pixels — repeat passes flip back & forth
+    const toggleAt = (x, y) => {
+      const r = Math.max(40, Math.min(160, Math.floor(stage.width * 0.04)));
+      const grad = mctx.createRadialGradient(x, y, 0, x, y, r);
+      grad.addColorStop(0.0, "rgba(255,255,255,1)");
+      grad.addColorStop(0.6, "rgba(255,255,255,0.6)");
+      grad.addColorStop(1.0, "rgba(255,255,255,0)");
+
+      mctx.globalCompositeOperation = "xor";
+      mctx.fillStyle = grad;
+      mctx.beginPath();
+      mctx.arc(x, y, r, 0, Math.PI * 2);
+      mctx.fill();
+      mctx.globalCompositeOperation = "source-over";
+
+      dirty = true;
+    };
+
+    const toPx = (evt) => {
+      const rect = stage.getBoundingClientRect();
+      return { x: (evt.clientX - rect.left) * dpr, y: (evt.clientY - rect.top) * dpr };
+    };
+
+    // Mouse movement is the input: toggle regions continuously under the cursor
+    stage.addEventListener("pointermove", (e) => {
+      const { x, y } = toPx(e);
+      toggleAt(x, y);
+    });
+
+    const setup = () => { copyProps(); drawText(); dirty = true; };
+    addEventListener("resize", setup, { passive:true });
+
+    const loop = () => { paint(); requestAnimationFrame(loop); };
+    setup();
+    loop();
+  })();
+  </script>
+</body>
+</html>
