@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>quasi – slides (erase → scroll)</title>
+  <title>quasi – slides (erase → world scroll + invert trail)</title>
   <style>
     html, body { height:100%; margin:0; background:#000; }
     body { font-family: "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif; }
@@ -14,61 +14,56 @@
   <canvas id="stage" aria-label="Interactive text canvas"></canvas>
   <script>
   (function(){
-    // ------- Common setup -------
+    // ===== Common setup =====
     var stage = document.getElementById('stage');
     var ctx = stage.getContext('2d');
     var dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
 
     function setSize(){
-      stage.width = Math.floor(innerWidth * dpr);
+      stage.width  = Math.floor(innerWidth * dpr);
       stage.height = Math.floor(innerHeight * dpr);
-      stage.style.width = innerWidth + 'px';
+      stage.style.width  = innerWidth + 'px';
       stage.style.height = innerHeight + 'px';
+      resizeAll();
     }
-    setSize();
     addEventListener('resize', setSize, {passive:true});
 
-    var now = 0, last = 0;
-
-    // ------- Slide Manager -------
-    var slideIndex = 0; // 0 = erase, 1 = scroll
+    // Slide manager
+    var slideIndex = 0; // 0: erase, 1: world scroll
     function nextSlide(){
       slideIndex = (slideIndex + 1);
-      if (slideIndex === 1) slide2_init();
+      if (slideIndex === 1) slide1_init();
     }
 
-    // =====================================
-    // Slide 0 — Erase-to-clear (white text on black)
-    // =====================================
+    // ===== Slide 0: Erase white text on black; when cleared -> nextSlide =====
     var s0 = {
       textCanvas: document.createElement('canvas'),
       tctx: null,
       probe: document.createElement('canvas'),
       pctx: null,
-      dirty: true
+      lastPt: null,
+      lastCheck: 0
     };
     s0.tctx = s0.textCanvas.getContext('2d');
     s0.pctx = s0.probe.getContext('2d', { willReadFrequently: true });
     s0.probe.width = 160; s0.probe.height = 90;
 
-    var MAIN = "together";
+    var MAIN = "i don't think i belong here but i don't know where to go";
     var SUB  = "by quasimatt";
 
     function s0_resize(){
       s0.textCanvas.width = stage.width;
       s0.textCanvas.height = stage.height;
       s0_drawText();
-      s0.dirty = true;
     }
 
-    function wrapLines(ctx2, text, font, maxWidth){
-      ctx2.font = font;
+    function wrapLines(c, text, font, maxWidth){
+      c.font = font;
       var words = text.split(/\s+/);
       var lines = []; var line = '';
       for (var i=0;i<words.length;i++){
         var test = line ? (line + ' ' + words[i]) : words[i];
-        if (ctx2.measureText(test).width <= maxWidth || !line) line = test;
-        else { lines.push(line); line = words[i]; }
+        if (c.measureText(test).width <= maxWidth || !line) line = test; else { lines.push(line); line = words[i]; }
       }
       if (line) lines.push(line);
       return lines;
@@ -76,30 +71,30 @@
 
     function s0_drawText(){
       var W = s0.textCanvas.width, H = s0.textCanvas.height;
-      var tctx = s0.tctx;
-      tctx.setTransform(1,0,0,1,0,0);
-      tctx.clearRect(0,0,W,H);
+      var c = s0.tctx;
+      c.setTransform(1,0,0,1,0,0);
+      c.clearRect(0,0,W,H);
 
       var mainSize = Math.max(26, Math.min(120, Math.floor(W * 0.055)));
       var subSize  = Math.max(12, Math.min(34,  Math.floor(W * 0.02)));
 
-      tctx.fillStyle = '#fff';
-      tctx.textAlign = 'center';
-      tctx.textBaseline = 'middle';
+      c.fillStyle = '#fff';
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
 
       var mainFont = '700 ' + mainSize + 'px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif';
       var subFont  = '400 ' + subSize  + 'px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif';
 
       var maxTextWidth = Math.floor(W * 0.8);
-      var lines = wrapLines(tctx, MAIN, mainFont, maxTextWidth);
+      var lines = wrapLines(c, MAIN, mainFont, maxTextWidth);
       var lineGap = Math.floor(mainSize * 0.35);
       var blockHeight = lines.length * mainSize + (lines.length - 1) * lineGap + (subSize * 1.6);
       var y = (H - blockHeight) / 2 + mainSize/2;
 
-      tctx.font = mainFont;
-      for (var j=0;j<lines.length;j++){ tctx.fillText(lines[j], W/2, y); y += mainSize + lineGap; }
-      tctx.font = subFont;
-      tctx.fillText(SUB, W/2, y + subSize*0.8);
+      c.font = mainFont;
+      for (var j=0;j<lines.length;j++){ c.fillText(lines[j], W/2, y); y += mainSize + lineGap; }
+      c.font = subFont;
+      c.fillText(SUB, W/2, y + subSize*0.8);
     }
 
     function s0_paint(){
@@ -109,11 +104,11 @@
       ctx.drawImage(s0.textCanvas, 0, 0);
     }
 
-    // brush = 50% larger than original, interpolated stamps for fast motion
     function s0_brushRadius(){
-      var b = stage.width * 0.04 * 1.5;
+      var b = stage.width * 0.04 * 1.5; // +50%
       return Math.max(60, Math.min(240, Math.floor(b)));
     }
+
     function s0_eraseStamp(x,y,r){
       var g = s0.tctx.createRadialGradient(x, y, 0, x, y, r);
       g.addColorStop(0.0, 'rgba(0,0,0,1)');
@@ -126,140 +121,169 @@
       s0.tctx.fill();
       s0.tctx.globalCompositeOperation = 'source-over';
     }
+
     function s0_eraseLine(x0,y0,x1,y1){
       var r = s0_brushRadius();
       var dx = x1-x0, dy=y1-y0; var dist = Math.hypot(dx,dy);
       if (dist===0){ s0_eraseStamp(x1,y1,r); return; }
-      var step = Math.max(1, r*0.5); // half-radius stepping to avoid gaps
+      var step = Math.max(1, r*0.5);
       var n = Math.ceil(dist/step);
       for (var i=0;i<=n;i++){
         var t = i/n; s0_eraseStamp(x0+dx*t, y0+dy*t, r);
       }
     }
+
     function s0_allErased(){
-      var pctx = s0.pctx;
-      pctx.clearRect(0,0,s0.probe.width,s0.probe.height);
-      pctx.drawImage(s0.textCanvas, 0, 0, s0.probe.width, s0.probe.height);
-      var data = pctx.getImageData(0,0,s0.probe.width,s0.probe.height).data;
+      var p = s0.pctx;
+      p.clearRect(0,0,s0.probe.width,s0.probe.height);
+      p.drawImage(s0.textCanvas, 0, 0, s0.probe.width, s0.probe.height);
+      var data = p.getImageData(0,0,s0.probe.width,s0.probe.height).data;
       for (var i=3;i<data.length;i+=4){ if (data[i]!==0) return false; }
       return true;
     }
 
-    // pointer handling (only active on slide 0)
-    var lastPt = null;
+    // pointer for slide 0
     function toPx(evt){ var r=stage.getBoundingClientRect(); return {x:(evt.clientX-r.left)*dpr, y:(evt.clientY-r.top)*dpr}; }
-    stage.addEventListener('pointerdown', function(e){
-      if (slideIndex!==0) return;
-      var p=toPx(e); s0_eraseStamp(p.x,p.y,s0_brushRadius()); lastPt=p; try{stage.setPointerCapture(e.pointerId);}catch(_){}
-    });
-    stage.addEventListener('pointermove', function(e){
-      if (slideIndex!==0) return;
-      var p=toPx(e);
-      if (lastPt) s0_eraseLine(lastPt.x,lastPt.y,p.x,p.y); else s0_eraseStamp(p.x,p.y,s0_brushRadius());
-      lastPt=p;
-    });
-    ['pointerup','pointercancel','pointerleave','pointerout'].forEach(function(t){ stage.addEventListener(t, function(){ lastPt=null; }); });
+    stage.addEventListener('pointerdown', function(e){ if (slideIndex!==0) return; var p=toPx(e); s0_eraseStamp(p.x,p.y,s0_brushRadius()); s0.lastPt=p; try{stage.setPointerCapture(e.pointerId);}catch(_){}});    
+    stage.addEventListener('pointermove', function(e){ if (slideIndex!==0) return; var p=toPx(e); if (s0.lastPt) s0_eraseLine(s0.lastPt.x,s0.lastPt.y,p.x,p.y); else s0_eraseStamp(p.x,p.y,s0_brushRadius()); s0.lastPt=p; });
+    ;['pointerup','pointercancel','pointerleave','pointerout'].forEach(function(t){ stage.addEventListener(t, function(){ s0.lastPt=null; }); });
 
-    // =====================================
-    // Slide 1 — Right-to-left sentence stream
-    // =====================================
+    // ===== Slide 1: World scroll left; mouse draws invert trail moving with world =====
+    var s1 = {
+      mask: document.createElement('canvas'),
+      mctx: null,
+      tmp: document.createElement('canvas'), // for shifting
+      tctx: null,
+      items: [],
+      lastIdx: -1,
+      lastY: -999,
+      speed: 120, // px/sec @ dpr=1
+      pointer: {x:0,y:0,over:false}
+    };
+    s1.mctx = s1.mask.getContext('2d');
+    s1.tctx = s1.tmp.getContext('2d');
+
     var sentences = (
       "we got drunk on christmas. i told you i felt like the bar was too high. we can't know people the way we know ourselves. we feel lonely because we imagine a closeness we can never reach. we need to lower our standards."
     ).split('.').map(function(s){ return (s.trim()? s.trim()+'.' : '').trim(); }).filter(Boolean);
 
-    var s2 = { items: [], lastSpawnedIndex: -1, lastY: -999, spawnedNext:false, speed: 120 }; // px/sec @ dpr=1
-
-    function slide2_init(){
-      s2.items.length = 0; s2.lastSpawnedIndex = -1; s2.lastY=-999; s2.spawnedNext=false;
-      spawnNextSentence(true); // start immediately
+    function s1_resize(){
+      s1.mask.width = stage.width; s1.mask.height = stage.height;
+      s1.tmp.width  = stage.width; s1.tmp.height  = stage.height;
+      // clear mask
+      s1.mctx.setTransform(1,0,0,1,0,0); s1.mctx.clearRect(0,0,s1.mask.width,s1.mask.height);
     }
 
-    function s2_fontSize(){ return Math.max(18, Math.min(42, Math.floor(stage.width * 0.02))); }
+    function s1_fontSize(){ return Math.max(18, Math.min(42, Math.floor(stage.width * 0.02))); }
 
-    function s2_pickY(){
+    function s1_pickY(){
       var margin = Math.max(40, Math.floor(stage.height*0.1));
       var y, tries=0;
-      do {
-        y = Math.floor(Math.random()*(stage.height - 2*margin)) + margin;
-        tries++;
-      } while (Math.abs(y - s2.lastY) < 40 && tries < 8);
-      s2.lastY = y; return y;
+      do { y = Math.floor(Math.random()*(stage.height - 2*margin)) + margin; tries++; }
+      while (Math.abs(y - s1.lastY) < 40 && tries < 8);
+      s1.lastY = y; return y;
     }
 
-    function spawnNextSentence(initial){
-      var next = (s2.lastSpawnedIndex + 1) % sentences.length;
-      s2.lastSpawnedIndex = next;
+    function s1_spawn(initial){
+      var next = (s1.lastIdx + 1) % sentences.length; s1.lastIdx = next;
       var text = sentences[next];
-      var font = '400 ' + s2_fontSize() + 'px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif';
-      ctx.font = font;
-      var w = Math.ceil(ctx.measureText(text).width);
-      var item = {
-        text: text,
-        font: font,
-        x: stage.width + (initial? 0 : Math.floor(s2_fontSize()*0.5)), // small spacing
-        y: s2_pickY(),
-        w: w
-      };
-      s2.items.push(item);
-      s2.spawnedNext = false;
+      var font = '400 ' + s1_fontSize() + 'px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif';
+      ctx.font = font; var w = Math.ceil(ctx.measureText(text).width);
+      s1.items.push({ text:text, font:font, x: stage.width + (initial?0: Math.floor(s1_fontSize()*0.5)), y: s1_pickY(), w:w });
     }
 
-    function slide2_update(dt){
-      // move left
-      var speed = s2.speed * dpr;
-      for (var i=0;i<s2.items.length;i++) s2.items[i].x -= speed * dt;
-
-      // when tail of last item becomes visible, spawn next
-      var lastItem = s2.items[s2.items.length-1];
-      if (lastItem && !s2.spawnedNext && (lastItem.x + lastItem.w <= stage.width)){
-        s2.spawnedNext = true;
-        spawnNextSentence(false);
-      }
-
-      // remove items offscreen left
-      while (s2.items.length && s2.items[0].x + s2.items[0].w < 0) s2.items.shift();
+    function s1_shiftMaskLeft(dx){
+      // copy mask -> tmp
+      s1.tctx.setTransform(1,0,0,1,0,0);
+      s1.tctx.clearRect(0,0,s1.tmp.width,s1.tmp.height);
+      s1.tctx.drawImage(s1.mask, 0, 0);
+      // draw back shifted
+      s1.mctx.setTransform(1,0,0,1,0,0);
+      s1.mctx.clearRect(0,0,s1.mask.width,s1.mask.height);
+      s1.mctx.drawImage(s1.tmp, -dx, 0);
+      // right gutter stays transparent
     }
 
-    function slide2_render(){
+    function s1_stampInvert(x,y){
+      var r = s0_brushRadius();
+      var g = s1.mctx.createRadialGradient(x,y,0,x,y,r);
+      g.addColorStop(0.0, 'rgba(255,255,255,1)');
+      g.addColorStop(0.6, 'rgba(255,255,255,0.6)');
+      g.addColorStop(1.0, 'rgba(255,255,255,0)');
+      s1.mctx.globalCompositeOperation = 'lighter'; // accumulate brightness
+      s1.mctx.fillStyle = g;
+      s1.mctx.beginPath(); s1.mctx.arc(x,y,r,0,Math.PI*2); s1.mctx.fill();
+      s1.mctx.globalCompositeOperation = 'source-over';
+    }
+
+    function slide1_init(){
+      s1.items.length = 0; s1.lastIdx = -1; s1.lastY=-999;
+      s1_resize();
+      s1_spawn(true);
+    }
+
+    function slide1_update(dt){
+      var px = s1.speed * dpr * dt;
+      // shift the whole mask left to simulate world sliding
+      s1_shiftMaskLeft(px);
+
+      // move sentences left in world-space
+      for (var i=0;i<s1.items.length;i++) s1.items[i].x -= px;
+
+      // spawn next sentence as soon as tail of last is visible
+      var lastItem = s1.items[s1.items.length-1];
+      if (lastItem && (lastItem.x + lastItem.w <= stage.width)) s1_spawn(false);
+
+      // prune offscreen
+      while (s1.items.length && s1.items[0].x + s1.items[0].w < 0) s1.items.shift();
+
+      // draw stamp every frame at pointer if over canvas
+      if (s1.pointer.over){ s1_stampInvert(s1.pointer.x, s1.pointer.y); }
+    }
+
+    function slide1_render(){
+      // draw the world (black bg + white text)
       ctx.setTransform(1,0,0,1,0,0);
       ctx.fillStyle = '#000';
       ctx.fillRect(0,0,stage.width,stage.height);
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff';
-      for (var i=0;i<s2.items.length;i++){
-        var it = s2.items[i];
-        ctx.font = it.font;
-        ctx.fillText(it.text, it.x, it.y);
-      }
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+      for (var i=0;i<s1.items.length;i++){ var it = s1.items[i]; ctx.font = it.font; ctx.fillText(it.text, it.x, it.y); }
+      // apply invert mask as a screen-space difference
+      ctx.globalCompositeOperation = 'difference';
+      ctx.drawImage(s1.mask, 0, 0);
+      ctx.globalCompositeOperation = 'source-over';
     }
 
-    // ------- Frame loop -------
-    function render(){
-      if (slideIndex === 0){ s0_paint(); }
-      else if (slideIndex === 1){ slide2_render(); }
-    }
+    // pointer input for slide 1 (track hover + movement draws continuous line)
+    stage.addEventListener('pointermove', function(e){
+      var p = toPx(e);
+      if (slideIndex===1){ s1.pointer.x = p.x; s1.pointer.y = p.y; s1.pointer.over = true; }
+    });
+    ;['pointerleave','pointerout','pointercancel'].forEach(function(t){ stage.addEventListener(t, function(){ if(slideIndex===1){ s1.pointer.over=false; } }); });
 
-    function update(dt){
-      if (slideIndex === 0){
-        if (s0_allErased()) nextSlide();
-      } else if (slideIndex === 1){
-        slide2_update(dt);
-      }
-    }
-
-    function resizeAll(){ s0_resize(); }
-    resizeAll();
-
+    // ===== frame loop =====
+    var tPrev=0;
     function tick(ts){
-      if (!last) last = ts; now = ts; var dt = Math.min(0.05, (now - last)/1000); last = now; // clamp dt
-      update(dt);
-      render();
+      if (!tPrev) tPrev = ts; var dt = Math.min(0.05, (ts - tPrev)/1000); tPrev = ts;
+      if (slideIndex === 0){
+        s0_paint();
+        if (s0.lastCheck === 0 || ts - s0.lastCheck > 100){ s0.lastCheck = ts; if (s0_allErased()) nextSlide(); }
+      } else if (slideIndex === 1){
+        slide1_update(dt);
+        slide1_render();
+      }
       requestAnimationFrame(tick);
     }
 
+    function resizeAll(){
+      if (slideIndex===0) s0_resize(); else s1_resize();
+    }
+
+    // init
+    setSize();
     requestAnimationFrame(tick);
   })();
   </script>
 </body>
 </html>
+
