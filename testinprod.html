@@ -246,16 +246,239 @@
 
     // ============== Slide 3 (placeholder; self-contained) ==============
     const Slide3 = {
-      name: 'slide-3-placeholder',
-      init(){},
-      onResize(){},
-      update(){},
-      render(ctx, app){
-        ctx.setTransform(1,0,0,1,0,0);
-        ctx.fillStyle='#000'; ctx.fillRect(0,0,app.w,app.h);
-      },
-      shouldAdvance(){ return false; }
-    };
+     name: 'social-graph',
+  // state
+  nodes: [], links: [],
+  loaded: false, error: null,
+  pointerInside: false, px: 0, py: 0,
+  fontPx: 12,
+  cutoffISO: '2025-09-22',
+
+  // --- lifecycle ---
+  init(app){
+    this.loaded = false; this.error = null;
+    this.nodes = []; this.links = [];
+    this.fontPx = Math.max(11, Math.min(16, Math.floor(app.w * 0.012)));
+    this.loadSocial().then(() => {
+      this.layoutInit(app);
+      this.loaded = true;
+    }).catch(err => { this.error = String(err && err.message || err); });
+  },
+  onResize(app){
+    this.fontPx = Math.max(11, Math.min(16, Math.floor(app.w * 0.012)));
+    // no expensive recompute here; center force will re-pack
+  },
+  destroy(){ this.nodes = []; this.links = []; },
+
+  // --- input ---
+  onPointerMove(e, ptr){ this.pointerInside = true; this.px = ptr.x; this.py = ptr.y; },
+  onPointerUp(){ this.pointerInside = false; },
+
+  // --- helpers: data parsing ---
+  cutoff(){ const [Y,M,D] = this.cutoffISO.split('-').map(Number); return new Date(Y, M-1, D); },
+  parseDataDate(code){
+    if (!code) return null; const s = String(code).trim();
+    if (/^\d{6}$/.test(s)){ const mm=+s.slice(0,2), dd=+s.slice(2,4), yy=+s.slice(4,6); return new Date(2000+yy, mm-1, dd); }
+    if (/^\d{8}$/.test(s)){ const mm=+s.slice(0,2), dd=+s.slice(2,4), yyyy=+s.slice(4,8); return new Date(yyyy, mm-1, dd); }
+    return null;
+  },
+  extractAccount(href){
+    try {
+      const u = new URL(href, location.origin);
+      const host = u.hostname.toLowerCase();
+
+      // X / Twitter
+      if (host === 'x.com' || host === 'twitter.com' || host === 'mobile.twitter.com'){
+        const seg = (u.pathname.split('/').filter(Boolean)[0]||'').replace(/^@/,'');
+        if (!seg) return null;
+        const handle = seg.toLowerCase();
+        return { id:`x:${handle}`, platform:'x', handle, url:`https://twitter.com/${handle}` };
+      }
+      // Instagram
+      if (host === 'instagram.com' || host === 'www.instagram.com' || host === 'm.instagram.com'){
+        const p = u.pathname.split('/').filter(Boolean); const first=(p[0]||'').toLowerCase();
+        const bad = new Set(['p','reel','reels','stories','explore','tv','accounts']);
+        if (!first || bad.has(first) || !/^[a-z0-9._]{1,30}$/i.test(first)) return null;
+        const handle = first.toLowerCase();
+        return { id:`ig:${handle}`, platform:'ig', handle, url:`https://instagram.com/${handle}` };
+      }
+      return null;
+    } catch { return null; }
+  },
+
+  // --- data load (same-origin /social) ---
+  async loadSocial(){
+    const res = await fetch('/social', { credentials:'same-origin' });
+    if (!res.ok) throw new Error('Failed to fetch /social');
+    const html = await res.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    const cutoff = this.cutoff();
+    const ps = Array.from(doc.querySelectorAll("p[data-type='social'][data-date]"));
+    const posts = [];
+    const meta = new Map();
+
+    for (const el of ps){
+      const dt = this.parseDataDate(el.getAttribute('data-date'));
+      if (!dt || dt < cutoff) continue;
+
+      const ids = new Set();
+      el.querySelectorAll('a[href]').forEach(a => {
+        const acc = this.extractAccount(a.getAttribute('href'));
+        if (acc){ ids.add(acc.id); if (!meta.has(acc.id)) meta.set(acc.id, acc); }
+      });
+      if (ids.size) posts.push({ date: dt, ids: [...ids] });
+    }
+    posts.sort((a,b)=> a.date - b.date);
+
+    // minMentions = 1
+    const counts = new Map();
+    for (const p of posts){ for (const id of p.ids) counts.set(id, (counts.get(id)||0)+1); }
+    const eligible = [...counts.keys()];
+    const elig = new Set(eligible);
+
+    // nodes
+    this.nodes = eligible.map(id => ({
+      id,
+      handle: (meta.get(id)?.handle) || id.split(':').pop(),
+      platform: (meta.get(id)?.platform) || 'x',
+      url: (meta.get(id)?.url) || '',
+      mentions: counts.get(id) || 1,
+      x: 0, y: 0, vx: 0, vy: 0,
+      r: 6 + Math.min(12, (counts.get(id)||1)*1.2)
+    }));
+
+    // links (co-mentions, unweighted layout length for simplicity)
+    const key = (a,b)=> a<b ? `${a}|${b}` : `${b}|${a}`;
+    const map = new Map();
+    for (const p of posts){
+      const ids = p.ids.filter(id=>elig.has(id));
+      for (let i=0;i<ids.length;i++){
+        for (let j=i+1;j<ids.length;j++){
+          const k = key(ids[i], ids[j]);
+          map.set(k, (map.get(k)||0)+1);
+        }
+      }
+    }
+    this.links = [];
+    for (const [k,v] of map){
+      const [a,b] = k.split('|');
+      const A = this.nodes.find(n=>n.id===a), B = this.nodes.find(n=>n.id===b);
+      if (A && B) this.links.push({ a:A, b:B, value:v, len:120 });
+    }
+  },
+
+  // --- layout bootstrap ---
+  layoutInit(app){
+    const W = app.w, H = app.h;
+    const N = this.nodes.length || 1;
+    const cols = Math.ceil(Math.sqrt(N));
+    this.nodes.forEach((n,i)=>{
+      const x = (i % cols) / (cols-1 || 1);
+      const y = Math.floor(i/cols) / (cols-1 || 1);
+      n.x = 80 + x*(W-160) + (Math.random()-0.5)*20;
+      n.y = 80 + y*(H-160) + (Math.random()-0.5)*20;
+      n.vx = 0; n.vy = 0;
+    });
+  },
+
+  // --- simulation/update ---
+  update(dt, app){
+    if (!this.loaded || !this.nodes.length) return;
+
+    const W = app.w, H = app.h, cx = W/2, cy = H/2;
+
+    const springK   = 0.006;
+    const centerK   = 0.0008;
+    const friction  = 0.78;
+    const repelK    = 2200;  // node-node
+    const collideK  = 0.25;
+    const pad       = 6;
+
+    const pointerK  = 9000;
+    const pointerR  = Math.max(100, Math.min(240, Math.floor(Math.min(W,H)*0.18)));
+    const pR2       = pointerR * pointerR;
+
+    // pairwise repulsion + soft collision
+    for (let i=0;i<this.nodes.length;i++){
+      const a = this.nodes[i];
+      for (let j=i+1;j<this.nodes.length;j++){
+        const b = this.nodes[j];
+        let dx = b.x - a.x, dy = b.y - a.y;
+        let d2 = dx*dx + dy*dy;
+        if (d2 === 0){ dx=(Math.random()-0.5)*1e-3; dy=(Math.random()-0.5)*1e-3; d2 = dx*dx + dy*dy; }
+        const d = Math.sqrt(d2);
+        const f = repelK / d2;
+        const fx = f * (dx/d), fy = f * (dy/d);
+        a.vx -= fx; a.vy -= fy; b.vx += fx; b.vy += fy;
+
+        const minD = (a.r + b.r) + pad;
+        if (d < minD){
+          const push = collideK * (minD - d);
+          const pfx = push * (dx/d), pfy = push * (dy/d);
+          a.vx -= pfx; a.vy -= pfy; b.vx += pfx; b.vy += pfy;
+        }
+      }
+    }
+
+    // springs along links
+    for (const l of this.links){
+      const a = l.a, b = l.b;
+      let dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx,dy) || 1e-6;
+      const f = springK * (d - l.len);
+      const fx = f * (dx/d), fy = f * (dy/d);
+      a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+    }
+
+    // pointer repulsion: "run away from mouse"
+    if (this.pointerInside){
+      const px = this.px, py = this.py;
+      for (const n of this.nodes){
+        const dx = n.x - px, dy = n.y - py;
+        const d2 = dx*dx + dy*dy;
+        if (d2 < pR2){
+          const d = Math.sqrt(d2) || 1e-6;
+          const f = pointerK / (d2 + 1);
+          n.vx += f * (dx/d);
+          n.vy += f * (dy/d);
+        }
+      }
+    }
+
+    // center + integrate
+    for (const n of this.nodes){
+      n.vx += (cx - n.x) * centerK;
+      n.vy += (cy - n.y) * centerK;
+      n.vx *= friction; n.vy *= friction;
+      n.x += n.vx; n.y += n.vy;
+    }
+  },
+
+  // --- draw (labels only) ---
+  render(ctx, app){
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0,0,app.w,app.h);
+
+    if (!this.loaded) return;
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 3;
+
+    for (const n of this.nodes){
+      ctx.font = `600 ${this.fontPx}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+      const label = `@${n.handle}`;
+      ctx.strokeText(label, n.x, n.y); // halo for readability
+      ctx.fillText(label,  n.x, n.y);
+    }
+  },
+
+  shouldAdvance(){ return false; }
+};
 
     // Register slides (each is self-contained)
     app.slides = [ Slide1, Slide2, Slide3 ];
