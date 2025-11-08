@@ -408,9 +408,9 @@ const Slide3 = {
     this.nodes.forEach((n,i)=>{
       const x = (i % cols) / (cols-1 || 1);
       const y = Math.floor(i/cols) / (cols-1 || 1);
-      // slightly looser margins so graph feels bigger
+      // margins but let the graph basically fill the screen
       n.x = 60 + x*(W-120) + (Math.random()-0.5)*20;
-      n.y = 80 + y*(H-160) + (Math.random()-0.5)*20;
+      n.y = 60 + y*(H-120) + (Math.random()-0.5)*20;
       n.vx = 0; n.vy = 0;
     });
   },
@@ -493,13 +493,12 @@ const Slide3 = {
     // center + integrate
     for (const n of this.nodes){
       n.vx += (cx - n.x) * centerK;
-      n.vy += (cy - n.y) * centerK;
-      n.vx *= friction; n.vy *= friction;
-      n.x += n.vx; n.y += n.vy;
+      n.vy *= friction; n.vx *= friction;
+      n.y += n.vy * dt; n.x += n.vx * dt;
     }
   },
 
-  // --- draw (labels only + top typewriter bar + dot) ---
+  // --- draw (graph fullscreen + overlay text + dot) ---
   render(ctx, app){
     ctx.setTransform(1,0,0,1,0,0);
     ctx.fillStyle = '#000';
@@ -507,18 +506,7 @@ const Slide3 = {
 
     if (!this.loaded) return;
 
-    // Top band reserved for text
-    const bandH = Math.max(70, Math.floor(app.h * 0.20));
-    const topBandY = 0;
-    const midY = bandH;
-
-    // Clip graph labels to area below the top band so the graph is big
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, midY, app.w, app.h - midY);
-    ctx.clip();
-
-    // Draw graph labels (white) within clipped middle/bottom area
+    // Draw graph labels across the whole screen
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff';
@@ -530,21 +518,18 @@ const Slide3 = {
       ctx.strokeText(label, n.x, n.y);
       ctx.fillText(label,  n.x, n.y);
     }
-    ctx.restore();
 
-    // After delay, typewriter text appears in a black bar at the top
+    // After delay, typewriter text appears at the very top,
+    // with tight black boxes behind each line (overlay).
     if (this.textTimer >= this.textDelay){
       const full = this.text;
       const shown = full.slice(0, Math.floor(this.textCharsShown));
 
-      // Draw black bar behind the text
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, topBandY, app.w, bandH);
-
-      const fs = Math.max(18, Math.min(30, Math.floor(app.w * 0.022))); // larger text
+      const fs = Math.max(22, Math.min(34, Math.floor(app.w * 0.024))); // bigger & bold
       const lh = Math.floor(fs * 1.4);
-      const sideMargin = Math.floor(app.w * 0.08);
+      const sideMargin = Math.floor(app.w * 0.06);
       const maxW = app.w - sideMargin*2;
+      const topMargin = 16;
 
       function wrap(c, text, font, width){
         c.font = font;
@@ -560,20 +545,33 @@ const Slide3 = {
         return lines;
       }
 
-      const font = `400 ${fs}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+      const font = `700 ${fs}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
       const lines = wrap(ctx, shown, font, maxW);
 
-      // Draw lines anchored from the top of the band (no vertical sliding)
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
-      ctx.fillStyle = '#fff';
       ctx.font = font;
-      let y = topBandY + Math.floor(lh * 1.1);
+
+      const padX = 10;
+      const padY = 6;
+      let y = topMargin + lh;       // fixed vertical starting point
       const xStart = sideMargin;
+
       for (const L of lines){
+        const w = ctx.measureText(L).width;
+        // black box behind line
+        ctx.fillStyle = '#000';
+        ctx.fillRect(
+          xStart - padX,
+          y - lh - padY,
+          w + padX*2,
+          lh + padY*2
+        );
+        // white bold text
+        ctx.fillStyle = '#fff';
         ctx.fillText(L, xStart, y);
         y += lh;
-        if (y > topBandY + bandH - lh/2) break; // don't overflow the bar
+        if (y > app.h * 0.5) break; // don't go too far down
       }
     }
 
@@ -593,8 +591,6 @@ const Slide3 = {
     return this.dotHoverAdvance;
   }
 };
-
-
 
     // Register slides (each is self-contained)
     app.slides = [ Slide1, Slide2, Slide3 ];
