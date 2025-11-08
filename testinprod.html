@@ -53,7 +53,7 @@
     addEventListener('resize', ()=> app.setSize(), { passive:true });
 
     // ============== Slide 1 (self-contained) ==============
-    // Black background. Large “together” + small “by quasimatt”.
+    // Black background; large “together” + small “by quasimatt”.
     // Mouse near/over text erases it (turns those glyph pixels black permanently).
     // When ALL text pixels are erased → advance.
     const Slide1 = {
@@ -143,23 +143,27 @@
 
     // ============== Slide 2 (self-contained) ==============
     // White background; black sentences scroll right→left.
-    // Each sentence gets a randomized height; the next spawns as soon as the end of the previous appears onscreen.
+    // When the LAST sentence's center reaches the screen center: freeze, turn bg black, last sentence white, hold 1s → next slide.
     const Slide2 = {
       name: 'slide-2-marquee',
       speed: 120, // px/sec @ dpr=1
       items: [],
       fontSize: 24,
-      timer: 0,
       text:
-        "we spent christmas together. i told you that i think my bar for considering myself close to someone is too high. i will never know someone like i know myself. lifelong friends feel like acquaintences. acquaintences feel like strangers. everyone feels far away.",
+        "we spent christmas together. we got incredibly drunk. i barely remember telling you that i think the closeness we imagine is mythical. we can never know anyone like we know ourselves. when we try to know someone, our bar is too high. we cannot understand everything we want to. we feel lonely because we imagine we can know people better than we actually can. the next day, you told me it was the most emotionally honest thing you'd ever heard me say.",
+      nextIndex: 0,
+      sentencesCached: [],
+      stopped: false,
+      holdTimer: 0,
+      lastItem: null,
 
       init(app){
-        this.items = []; this.timer = 0; this.onResize(app);
-        this.nextIndex = 0;
-        this.spawnNext(app, true); // seed first sentence
+        this.items = []; this.stopped=false; this.holdTimer=0; this.lastItem=null; this.nextIndex=0;
+        this.onResize(app);
+        this.sentencesCached = this.text.split(/(?<=[.!?])\s+/).map(s=>s.trim()).filter(Boolean);
+        this.spawnNext(app, true);
       },
       onResize(app){ this.fontSize = Math.max(18, Math.min(48, Math.floor(app.w * 0.022))); },
-      sentences(){ return this.text.split(/(?<=[.!?])\s+/).map(s=>s.trim()).filter(Boolean); },
       measure(text, fs){
         ctx.font = `600 ${fs}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
         return Math.ceil(ctx.measureText(text).width);
@@ -175,42 +179,86 @@
         return Math.floor(app.h/2);
       },
       spawnNext(app, initial){
-        const sents = this.sentences(); if (!sents.length) return;
-        if (this.nextIndex >= sents.length) this.nextIndex = 0;
+        const sents = this.sentencesCached; if (!sents.length) return;
+        if (this.nextIndex >= sents.length) return; // stop spawning beyond last
         const text = sents[this.nextIndex++];
+        const isLast = (this.nextIndex === sents.length);
         const fs = this.fontSize;
         const w = this.measure(text, fs);
         const y = this.pickY(app);
         const x = app.w + (initial ? 0 : Math.floor(fs*0.6));
-        this.items.push({ text, x, y, w, fs });
+        const item = { text, x, y, w, fs, isLast };
+        if (isLast) this.lastItem = item;
+        this.items.push(item);
       },
       update(dt, app){
-        this.timer += dt;
+        if (this.stopped){
+          this.holdTimer += dt;
+          return;
+        }
         const dx = this.speed * app.dpr * dt;
         for (const it of this.items) it.x -= dx;
 
-        // Spawn next when the end of the last sentence first appears on screen
-        const last = this.items[this.items.length-1];
-        if (last && (last.x + last.w) <= app.w) this.spawnNext(app, false);
+        // Spawn next when the end of the last spawned appears onscreen
+        const tail = this.items[this.items.length-1];
+        if (tail && (tail.x + tail.w) <= app.w) this.spawnNext(app, false);
 
-        // Clean up offscreen
+        // Clean out fully offscreen items
         while (this.items.length && this.items[0].x + this.items[0].w < 0) this.items.shift();
-      },
-      render(ctx, app){
-        ctx.setTransform(1,0,0,1,0,0);
-        ctx.fillStyle = '#fff'; ctx.fillRect(0,0,app.w,app.h);
-        ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle='#000';
-        for (const it of this.items){
-          ctx.font = `600 ${it.fs}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
-          ctx.fillText(it.text, it.x, it.y);
+
+        // Stop when last sentence center reaches screen center
+        if (this.lastItem){
+          const center = this.lastItem.x + this.lastItem.w/2;
+          const target = app.w/2;
+          if (center <= target){
+            // snap to perfect center, freeze
+            this.lastItem.x = Math.floor(target - this.lastItem.w/2);
+            this.stopped = true;
+            // keep only the last item visible
+            this.items = [ this.lastItem ];
+          }
         }
       },
-      shouldAdvance(){ return false; },
-      destroy(){ this.items.length = 0; }
+      render(ctx, app){
+        if (!this.stopped){
+          // scrolling state: white bg, black text
+          ctx.setTransform(1,0,0,1,0,0);
+          ctx.fillStyle = '#fff'; ctx.fillRect(0,0,app.w,app.h);
+          ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle='#000';
+          for (const it of this.items){
+            ctx.font = `600 ${it.fs}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+            ctx.fillText(it.text, it.x, it.y);
+          }
+        } else {
+          // frozen state: black bg, last sentence in white, centered
+          ctx.setTransform(1,0,0,1,0,0);
+          ctx.fillStyle = '#000'; ctx.fillRect(0,0,app.w,app.h);
+          if (this.lastItem){
+            ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle='#fff';
+            ctx.font = `600 ${this.lastItem.fs}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+            ctx.fillText(this.lastItem.text, this.lastItem.x, this.lastItem.y);
+          }
+        }
+      },
+      shouldAdvance(){ return this.stopped && this.holdTimer >= 1.0; },
+      destroy(){ this.items.length = 0; this.lastItem = null; }
+    };
+
+    // ============== Slide 3 (placeholder; self-contained) ==============
+    const Slide3 = {
+      name: 'slide-3-placeholder',
+      init(){},
+      onResize(){},
+      update(){},
+      render(ctx, app){
+        ctx.setTransform(1,0,0,1,0,0);
+        ctx.fillStyle='#000'; ctx.fillRect(0,0,app.w,app.h);
+      },
+      shouldAdvance(){ return false; }
     };
 
     // Register slides (each is self-contained)
-    app.slides = [ Slide1, Slide2 ];
+    app.slides = [ Slide1, Slide2, Slide3 ];
 
     // Main loop
     let tPrev = 0;
@@ -229,3 +277,4 @@
   </script>
 </body>
 </html>
+
