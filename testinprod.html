@@ -261,24 +261,49 @@ const Slide3 = {
   textSpeed: 90,       // chars per second
   textCharsShown: 0,   // running total of visible chars
 
+  // dot state
+  dotVisible: false,
+  dotRadius: 14,
+  dotHoverAdvance: false,
+  dotDelayAfterText: 3.0, // seconds after text starts
+
   // --- lifecycle ---
   init(app){
     this.loaded = false; this.error = null;
     this.nodes = []; this.links = [];
-    this.fontPx = Math.max(11, Math.min(16, Math.floor(app.w * 0.012)));
-    this.textTimer = 0; this.textCharsShown = 0;
+    this.fontPx = Math.max(14, Math.min(22, Math.floor(app.w * 0.016))); // slightly larger labels
+    this.textTimer = 0;
+    this.textCharsShown = 0;
+    this.dotVisible = false;
+    this.dotHoverAdvance = false;
+
     this.loadSocial().then(() => {
       this.layoutInit(app);
       this.loaded = true;
     }).catch(err => { this.error = String(err && err.message || err); });
   },
   onResize(app){
-    this.fontPx = Math.max(11, Math.min(16, Math.floor(app.w * 0.012)));
+    this.fontPx = Math.max(14, Math.min(22, Math.floor(app.w * 0.016)));
   },
   destroy(){ this.nodes = []; this.links = []; },
 
   // --- input ---
-  onPointerMove(e, ptr){ this.pointerInside = true; this.px = ptr.x; this.py = ptr.y; },
+  onPointerMove(e, ptr, app){
+    this.pointerInside = true;
+    this.px = ptr.x;
+    this.py = ptr.y;
+
+    // If the dot is visible, detect hover → request advance
+    if (this.dotVisible){
+      const cx = app.w / 2;
+      const cy = app.h - 40;
+      const dx = this.px - cx;
+      const dy = this.py - cy;
+      if (dx*dx + dy*dy <= this.dotRadius * this.dotRadius){
+        this.dotHoverAdvance = true;
+      }
+    }
+  },
   onPointerUp(){ this.pointerInside = false; },
 
   // --- helpers: data parsing ---
@@ -383,7 +408,8 @@ const Slide3 = {
     this.nodes.forEach((n,i)=>{
       const x = (i % cols) / (cols-1 || 1);
       const y = Math.floor(i/cols) / (cols-1 || 1);
-      n.x = 80 + x*(W-160) + (Math.random()-0.5)*20;
+      // slightly looser margins so graph feels bigger
+      n.x = 60 + x*(W-120) + (Math.random()-0.5)*20;
       n.y = 80 + y*(H-160) + (Math.random()-0.5)*20;
       n.vx = 0; n.vy = 0;
     });
@@ -397,6 +423,11 @@ const Slide3 = {
     this.textTimer += dt;
     if (this.textTimer >= this.textDelay && this.textCharsShown < this.text.length){
       this.textCharsShown = Math.min(this.text.length, this.textCharsShown + this.textSpeed * dt);
+    }
+
+    // show dot a few seconds after text starts typing
+    if (!this.dotVisible && this.textTimer >= this.textDelay + this.dotDelayAfterText){
+      this.dotVisible = true;
     }
 
     const W = app.w, H = app.h, cx = W/2, cy = H/2;
@@ -468,7 +499,7 @@ const Slide3 = {
     }
   },
 
-  // --- draw (labels only + typewriter bands) ---
+  // --- draw (labels only + top typewriter bar + dot) ---
   render(ctx, app){
     ctx.setTransform(1,0,0,1,0,0);
     ctx.fillStyle = '#000';
@@ -476,19 +507,18 @@ const Slide3 = {
 
     if (!this.loaded) return;
 
-    // Reserve top and bottom bands for text
-    const bandH = Math.max(60, Math.floor(app.h * 0.18));
+    // Top band reserved for text
+    const bandH = Math.max(70, Math.floor(app.h * 0.20));
     const topBandY = 0;
     const midY = bandH;
-    const bottomBandY = app.h - bandH;
 
-    // Clip graph labels to the middle area so text never sits "on top" of nodes
+    // Clip graph labels to area below the top band so the graph is big
     ctx.save();
     ctx.beginPath();
-    ctx.rect(0, midY, app.w, bottomBandY - midY);
+    ctx.rect(0, midY, app.w, app.h - midY);
     ctx.clip();
 
-    // Draw graph labels (white) within middle-only clip
+    // Draw graph labels (white) within clipped middle/bottom area
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff';
@@ -502,13 +532,17 @@ const Slide3 = {
     }
     ctx.restore();
 
-    // After delay, typewriter text appears in BOTH bands
+    // After delay, typewriter text appears in a black bar at the top
     if (this.textTimer >= this.textDelay){
       const full = this.text;
       const shown = full.slice(0, Math.floor(this.textCharsShown));
 
-      const fs = Math.max(14, Math.min(24, Math.floor(app.w * 0.018)));
-      const lh = Math.floor(fs * 1.35);
+      // Draw black bar behind the text
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, topBandY, app.w, bandH);
+
+      const fs = Math.max(18, Math.min(30, Math.floor(app.w * 0.022))); // larger text
+      const lh = Math.floor(fs * 1.4);
       const sideMargin = Math.floor(app.w * 0.08);
       const maxW = app.w - sideMargin*2;
 
@@ -529,20 +563,37 @@ const Slide3 = {
       const font = `400 ${fs}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
       const lines = wrap(ctx, shown, font, maxW);
 
-      function drawBlock(yStart, bandHeight){
-        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#fff'; ctx.font = font;
-        const blockH = lines.length * lh;
-        let y = yStart + (bandHeight - blockH)/2 + lh/2;
-        for (const L of lines){ ctx.fillText(L, app.w/2, y); y += lh; }
+      // Draw lines anchored from the top of the band (no vertical sliding)
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#fff';
+      ctx.font = font;
+      let y = topBandY + Math.floor(lh * 1.1);
+      const xStart = sideMargin;
+      for (const L of lines){
+        ctx.fillText(L, xStart, y);
+        y += lh;
+        if (y > topBandY + bandH - lh/2) break; // don't overflow the bar
       }
+    }
 
-      // Draw the same text both above and below the graph area
-      drawBlock(topBandY, bandH);
+    // White dot at bottom (appears after delay)
+    if (this.dotVisible){
+      const cx = app.w / 2;
+      const cy = app.h - 40;
+      ctx.beginPath();
+      ctx.arc(cx, cy, this.dotRadius, 0, Math.PI*2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
     }
   },
 
-  shouldAdvance(){ return false; }
+  shouldAdvance(app){
+    // advance when user hovers the white dot
+    return this.dotHoverAdvance;
+  }
 };
+
 
 
     // Register slides (each is self-contained)
