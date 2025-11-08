@@ -244,21 +244,29 @@
       destroy(){ this.items.length = 0; this.lastItem = null; }
     };
 
-    // ============== Slide 3 (placeholder; self-contained) ==============
-    const Slide3 = {
-     name: 'social-graph',
-  // state
+// ============== Slide 3: Social graph + timed typewriter text ==============
+const Slide3 = {
+  name: 'social-graph',
+  // graph state
   nodes: [], links: [],
   loaded: false, error: null,
   pointerInside: false, px: 0, py: 0,
   fontPx: 12,
   cutoffISO: '2025-09-22',
 
+  // typewriter state
+  text: "maybe if we cannot be close in the way i hoped for, we can be close in other ways. physically close. digitally close. next to each other in a vast network. i cannot be you, but i can, somehow, be close to you.",
+  textTimer: 0,
+  textDelay: 3.0,      // seconds before text starts
+  textSpeed: 90,       // chars per second
+  textCharsShown: 0,   // running total of visible chars
+
   // --- lifecycle ---
   init(app){
     this.loaded = false; this.error = null;
     this.nodes = []; this.links = [];
     this.fontPx = Math.max(11, Math.min(16, Math.floor(app.w * 0.012)));
+    this.textTimer = 0; this.textCharsShown = 0;
     this.loadSocial().then(() => {
       this.layoutInit(app);
       this.loaded = true;
@@ -266,7 +274,6 @@
   },
   onResize(app){
     this.fontPx = Math.max(11, Math.min(16, Math.floor(app.w * 0.012)));
-    // no expensive recompute here; center force will re-pack
   },
   destroy(){ this.nodes = []; this.links = []; },
 
@@ -386,6 +393,12 @@
   update(dt, app){
     if (!this.loaded || !this.nodes.length) return;
 
+    // advance typewriter state
+    this.textTimer += dt;
+    if (this.textTimer >= this.textDelay && this.textCharsShown < this.text.length){
+      this.textCharsShown = Math.min(this.text.length, this.textCharsShown + this.textSpeed * dt);
+    }
+
     const W = app.w, H = app.h, cx = W/2, cy = H/2;
 
     const springK   = 0.006;
@@ -455,7 +468,7 @@
     }
   },
 
-  // --- draw (labels only) ---
+  // --- draw (labels only + typewriter bands) ---
   render(ctx, app){
     ctx.setTransform(1,0,0,1,0,0);
     ctx.fillStyle = '#000';
@@ -463,22 +476,75 @@
 
     if (!this.loaded) return;
 
+    // Reserve top and bottom bands for text
+    const bandH = Math.max(60, Math.floor(app.h * 0.18));
+    const topBandY = 0;
+    const midY = bandH;
+    const bottomBandY = app.h - bandH;
+
+    // Clip graph labels to the middle area so text never sits "on top" of nodes
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, midY, app.w, bottomBandY - midY);
+    ctx.clip();
+
+    // Draw graph labels (white) within middle-only clip
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff';
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 3;
-
     for (const n of this.nodes){
       ctx.font = `600 ${this.fontPx}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
       const label = `@${n.handle}`;
-      ctx.strokeText(label, n.x, n.y); // halo for readability
+      ctx.strokeText(label, n.x, n.y);
       ctx.fillText(label,  n.x, n.y);
+    }
+    ctx.restore();
+
+    // After delay, typewriter text appears in BOTH bands
+    if (this.textTimer >= this.textDelay){
+      const full = this.text;
+      const shown = full.slice(0, Math.floor(this.textCharsShown));
+
+      const fs = Math.max(14, Math.min(24, Math.floor(app.w * 0.018)));
+      const lh = Math.floor(fs * 1.35);
+      const sideMargin = Math.floor(app.w * 0.08);
+      const maxW = app.w - sideMargin*2;
+
+      function wrap(c, text, font, width){
+        c.font = font;
+        const words = text.split(/\s+/);
+        const lines = [];
+        let line = '';
+        for (const w of words){
+          const test = line ? line + ' ' + w : w;
+          if (c.measureText(test).width <= width || !line) line = test;
+          else { lines.push(line); line = w; }
+        }
+        if (line) lines.push(line);
+        return lines;
+      }
+
+      const font = `400 ${fs}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+      const lines = wrap(ctx, shown, font, maxW);
+
+      function drawBlock(yStart, bandHeight){
+        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#fff'; ctx.font = font;
+        const blockH = lines.length * lh;
+        let y = yStart + (bandHeight - blockH)/2 + lh/2;
+        for (const L of lines){ ctx.fillText(L, app.w/2, y); y += lh; }
+      }
+
+      // Draw the same text both above and below the graph area
+      drawBlock(topBandY, bandH);
+      drawBlock(bottomBandY, bandH);
     }
   },
 
   shouldAdvance(){ return false; }
 };
+
 
     // Register slides (each is self-contained)
     app.slides = [ Slide1, Slide2, Slide3 ];
