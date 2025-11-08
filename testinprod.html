@@ -494,7 +494,7 @@ const Slide3 = {
     for (const n of this.nodes){
       n.vx += (cx - n.x) * centerK;
       n.vy *= friction; n.vx *= friction;
-      n.y += n.vy * dt; n.x += n.vx * dt;
+      n.y += n.vy; n.x += n.vx;
     }
   },
 
