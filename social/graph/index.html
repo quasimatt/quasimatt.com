@@ -36,6 +36,16 @@
     width:180px;
     height:16px;
   }
+  .mentions-bar {
+    position:absolute;
+    left:0;
+    right:0;
+    top:50%;
+    transform:translateY(-50%);
+    height:6px;
+    background:#333;
+    border-radius:3px;
+  }
   .mentions-range input[type="range"] {
     position:absolute;
     left:0;
@@ -45,9 +55,13 @@
     background:transparent;
     pointer-events:none; /* thumbs handle events */
     -webkit-appearance:none;
+    appearance:none;
   }
+
+  /* Thumbs (WebKit) */
   .mentions-range input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance:none;
+    appearance:none;
     pointer-events:auto;
     height:14px;
     width:14px;
@@ -57,11 +71,11 @@
     margin-top:-4px;
   }
   .mentions-range input[type="range"]::-webkit-slider-runnable-track {
-    height:6px;
-    background:#333;
-    border-radius:3px;
+    height:16px;
+    background:transparent; /* hide native track */
   }
-  /* Firefox */
+
+  /* Thumbs (Firefox) */
   .mentions-range input[type="range"]::-moz-range-thumb {
     pointer-events:auto;
     height:14px;
@@ -71,10 +85,13 @@
     border:1px solid #999;
   }
   .mentions-range input[type="range"]::-moz-range-track {
-    height:6px;
-    background:#333;
-    border-radius:3px;
+    height:16px;
+    background:transparent; /* hide native track */
   }
+
+  /* Ensure both thumbs sit above bar */
+  #minMentions { z-index:2; }
+  #maxMentions { z-index:3; }
 </style>
 </head>
 <body>
@@ -85,6 +102,7 @@
       <div class="mentions-control">
         <span>mentions: <span id="mentionsLabel">1–10</span></span>
         <div class="mentions-range">
+          <div class="mentions-bar"></div>
           <input id="minMentions" type="range" min="1" max="10" value="1" step="1" />
           <input id="maxMentions" type="range" min="1" max="10" value="10" step="1" />
         </div>
@@ -186,7 +204,6 @@
   }
   function getCutoffDate(){ const [y,m,d]=CUTOFF_ISO.split('-').map(Number); return new Date(y,m-1,d); }
 
-  // IG/X account extraction
   function extractAccountFromHref(href) {
     try {
       const u = new URL(href, location.origin);
@@ -264,7 +281,7 @@
 
   function buildGraph(minMentions = 1, maxMentions = Infinity) {
     const rawMentionCounts = new Map();
-    const decayedMentions = new Map(); // now just pure counts
+    const decayedMentions = new Map(); // pure counts
 
     const linkKey = (a,b) => a < b ? `${a}|${b}` : `${b}|${a}`;
     const linksMap = new Map();
@@ -640,13 +657,11 @@
     const absoluteMaxMentions = vals.length ? Math.max(...vals) : 1;
     globalMaxMentions = absoluteMaxMentions;
 
-    // Sync slider bounds
     minMentionsInput.min = '1';
     maxMentionsInput.min = '1';
     minMentionsInput.max = String(absoluteMaxMentions);
     maxMentionsInput.max = String(absoluteMaxMentions);
 
-    // Clamp values and enforce min <= max
     let minVal = parseInt(minMentionsInput.value, 10) || 1;
     let maxVal = parseInt(maxMentionsInput.value, 10) || absoluteMaxMentions;
 
@@ -654,8 +669,6 @@
     maxVal = Math.max(1, Math.min(maxVal, absoluteMaxMentions));
 
     if (minVal > maxVal) {
-      // simple rule: if they cross, snap the one that caused it will be fixed by caller;
-      // here just force min <= max
       [minVal, maxVal] = [maxVal, minVal];
     }
 
@@ -693,11 +706,9 @@
     }
   })();
 
-  // UI change
   minMentionsInput.addEventListener('input', recomputeAndRender);
   maxMentionsInput.addEventListener('input', recomputeAndRender);
 })();
 </script>
 </body>
 </html>
-
