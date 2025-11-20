@@ -476,7 +476,20 @@
   }
 
   // ===== Render =====
-  function nodeRadius(n){ return 4 + Math.min(14, (n.mentions||0) * 1.2); }
+
+  // <<< CHANGED: track global max mentions to scale radius relatively
+  let globalMaxMentions = 1; // updated in recomputeAndRender
+
+  function nodeRadius(n){
+    const minR = 4;
+    const maxR = 18; // matches old max (4 + 14)
+    const m = n.mentions || 0;
+    const M = globalMaxMentions || 1;
+    const t = M > 0 ? (m / M) : 0;
+    return minR + (maxR - minR) * t;
+  }
+  // <<< END CHANGE
+
   const labels = new Map();
 
   function render() {
@@ -553,8 +566,11 @@
       if (dx*dx+dy*dy <= r*r) { hit = n; break; }
     }
     if (hit) {
+      // <<< CHANGED: add connections count in tooltip
+      const connCount = (neighbors.get(hit.id) && neighbors.get(hit.id).size) || 0;
       tooltip.style.display='block';
-      tooltip.textContent = `@${hit.handle} — mentions: ${hit.mentions}`;
+      tooltip.textContent = `@${hit.handle} — mentions: ${hit.mentions} — connections: ${connCount}`;
+      // <<< END CHANGE
       tooltip.style.left = e.clientX + 'px';
       tooltip.style.top  = e.clientY + 'px';
     } else {
@@ -573,6 +589,10 @@
     }
     const vals = [...mentionTotals.values()];
     const maxMentions = vals.length ? Math.max(...vals) : 1;
+
+    // <<< CHANGED: store for nodeRadius scaling
+    globalMaxMentions = maxMentions;
+    // <<< END CHANGE
 
     minCountInput.max = String(maxMentions);
     if ((+minCountInput.value || 1) > maxMentions) {
@@ -616,4 +636,3 @@
 </script>
 </body>
 </html>
-
