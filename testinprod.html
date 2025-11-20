@@ -297,6 +297,7 @@ const Slide2 = {
 
 
 // ============== Slide 3: Social graph + timed typewriter text ==============
+// ============== Slide 3: Social graph + scattered typewriter sentences ==============
 const Slide3 = {
   name: 'social-graph',
   // graph state
@@ -306,12 +307,18 @@ const Slide3 = {
   fontPx: 12,
   cutoffISO: '2025-09-22',
 
-  // typewriter state
+  // typewriter text
   text: "we can understand other people through their context. where do they go? what do they do? who do they know?",
   textTimer: 0,
   textDelay: 3.0,      // seconds before text starts
   textSpeed: 90,       // chars per second
-  textCharsShown: 0,   // running total of visible chars
+  textElapsed: 0,      // since text actually started
+  sentences: [],
+  sentStates: [],
+  sentLayout: [],
+  currentSentenceIndex: 0,
+  textFontSize: 24,
+  textLineHeight: 32,
 
   // dot state
   dotVisible: false,
@@ -321,23 +328,38 @@ const Slide3 = {
 
   // --- lifecycle ---
   init(app){
-    this.loaded = false; this.error = null;
-    this.nodes = []; this.links = [];
-    this.fontPx = Math.max(14, Math.min(22, Math.floor(app.w * 0.016))); // slightly larger labels
+    this.loaded = false; 
+    this.error = null;
+    this.nodes = []; 
+    this.links = [];
+    this.fontPx = Math.max(14, Math.min(22, Math.floor(app.w * 0.016)));
+
+    // text state
     this.textTimer = 0;
-    this.textCharsShown = 0;
+    this.textElapsed = 0;
     this.dotVisible = false;
     this.dotHoverAdvance = false;
 
-    this.loadSocial().then(() => {
-      this.layoutInit(app);
-      this.loaded = true;
-    }).catch(err => { this.error = String(err && err.message || err); });
+    this.parseSentences();
+    this.setupSentenceLayout(app);
+
+    this.loadSocial()
+      .then(() => {
+        this.layoutInit(app);
+        this.loaded = true;
+      })
+      .catch(err => { this.error = String((err && err.message) || err); });
   },
+
   onResize(app){
     this.fontPx = Math.max(14, Math.min(22, Math.floor(app.w * 0.016)));
+    this.setupSentenceLayout(app);
   },
-  destroy(){ this.nodes = []; this.links = []; },
+
+  destroy(){
+    this.nodes = [];
+    this.links = [];
+  },
 
   // --- input ---
   onPointerMove(e, ptr, app){
@@ -358,14 +380,128 @@ const Slide3 = {
   },
   onPointerUp(){ this.pointerInside = false; },
 
+  // --- helpers: text parsing & layout ---
+  parseSentences(){
+    this.sentences = this.text
+      .split(/(?<=[.!?])\s+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    this.sentStates = this.sentences.map(txt => ({
+      text: txt,
+      charsShown: 0
+    }));
+    this.currentSentenceIndex = 0;
+  },
+
+  setupSentenceLayout(app){
+    if (!this.sentences || !this.sentences.length){
+      this.parseSentences();
+    }
+
+    // type layout font
+    const fs = Math.max(22, Math.min(34, Math.floor(app.w * 0.024)));
+    this.textFontSize = fs;
+    this.textLineHeight = Math.floor(fs * 1.4);
+
+    const sideMargin = Math.floor(app.w * 0.06);
+    const topMargin = 16;
+    const maxFullW = app.w - sideMargin * 2;
+    const font = `700 ${fs}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+
+    const wrap = (text, maxW) => {
+      ctx.font = font;
+      const words = text.split(/\s+/);
+      const lines = [];
+      let line = '';
+      for (const w of words){
+        const test = line ? line + ' ' + w : w;
+        if (ctx.measureText(test).width <= maxW || !line) {
+          line = test;
+        } else {
+          lines.push(line);
+          line = w;
+        }
+      }
+      if (line) lines.push(line);
+      return lines;
+    };
+
+    this.sentLayout = [];
+    const cx = app.w / 2;
+    const cy = app.h / 2;
+    const avoidRadius2 = Math.pow(Math.min(app.w, app.h) * 0.25, 2);
+
+    for (let i = 0; i < this.sentences.length; i++){
+      const text = this.sentences[i];
+
+      if (i === 0){
+        // First sentence: at the top
+        this.sentLayout.push({
+          x: sideMargin,
+          y: topMargin + this.textLineHeight,
+          maxW: maxFullW
+        });
+      } else {
+        // Subsequent sentences: random positions that avoid the center
+        const maxW = Math.floor(app.w * 0.45);
+        let best = null;
+        for (let tries = 0; tries < 30; tries++){
+          const x = sideMargin + Math.random() * (app.w - 2 * sideMargin - maxW);
+
+          // rough initial y
+          let y = topMargin + Math.random() * (app.h - 2 * topMargin - this.textLineHeight * 3);
+
+          const lines = wrap(text, maxW);
+          const textH = lines.length * this.textLineHeight;
+          if (y + textH > app.h - topMargin){
+            y = app.h - topMargin - textH;
+          }
+
+          const boxCx = x + maxW / 2;
+          const boxCy = y + textH / 2;
+          const dx = boxCx - cx;
+          const dy = boxCy - cy;
+          if (dx*dx + dy*dy < avoidRadius2) {
+            // too close to center; try again
+            continue;
+          }
+          best = { x, y, maxW };
+          break;
+        }
+        if (!best){
+          // fallback: bottom-left-ish
+          best = {
+            x: sideMargin,
+            y: app.h - topMargin - this.textLineHeight * 2,
+            maxW
+          };
+        }
+        this.sentLayout.push(best);
+      }
+    }
+  },
+
   // --- helpers: data parsing ---
-  cutoff(){ const [Y,M,D] = this.cutoffISO.split('-').map(Number); return new Date(Y, M-1, D); },
+  cutoff(){
+    const [Y,M,D] = this.cutoffISO.split('-').map(Number);
+    return new Date(Y, M-1, D);
+  },
+
   parseDataDate(code){
-    if (!code) return null; const s = String(code).trim();
-    if (/^\d{6}$/.test(s)){ const mm=+s.slice(0,2), dd=+s.slice(2,4), yy=+s.slice(4,6); return new Date(2000+yy, mm-1, dd); }
-    if (/^\d{8}$/.test(s)){ const mm=+s.slice(0,2), dd=+s.slice(2,4), yyyy=+s.slice(4,8); return new Date(yyyy, mm-1, dd); }
+    if (!code) return null;
+    const s = String(code).trim();
+    if (/^\d{6}$/.test(s)){
+      const mm = +s.slice(0,2), dd = +s.slice(2,4), yy = +s.slice(4,6);
+      return new Date(2000+yy, mm-1, dd);
+    }
+    if (/^\d{8}$/.test(s)){
+      const mm = +s.slice(0,2), dd = +s.slice(2,4), yyyy = +s.slice(4,8);
+      return new Date(yyyy, mm-1, dd);
+    }
     return null;
   },
+
   extractAccount(href){
     try {
       const u = new URL(href, location.origin);
@@ -373,21 +509,24 @@ const Slide3 = {
 
       // X / Twitter
       if (host === 'x.com' || host === 'twitter.com' || host === 'mobile.twitter.com'){
-        const seg = (u.pathname.split('/').filter(Boolean)[0]||'').replace(/^@/,'');
+        const seg = (u.pathname.split('/').filter(Boolean)[0] || '').replace(/^@/,'');
         if (!seg) return null;
         const handle = seg.toLowerCase();
         return { id:`x:${handle}`, platform:'x', handle, url:`https://twitter.com/${handle}` };
       }
       // Instagram
       if (host === 'instagram.com' || host === 'www.instagram.com' || host === 'm.instagram.com'){
-        const p = u.pathname.split('/').filter(Boolean); const first=(p[0]||'').toLowerCase();
+        const p = u.pathname.split('/').filter(Boolean);
+        const first = (p[0] || '').toLowerCase();
         const bad = new Set(['p','reel','reels','stories','explore','tv','accounts']);
         if (!first || bad.has(first) || !/^[a-z0-9._]{1,30}$/i.test(first)) return null;
         const handle = first.toLowerCase();
         return { id:`ig:${handle}`, platform:'ig', handle, url:`https://instagram.com/${handle}` };
       }
       return null;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   },
 
   // --- data load (same-origin /social) ---
@@ -409,15 +548,21 @@ const Slide3 = {
       const ids = new Set();
       el.querySelectorAll('a[href]').forEach(a => {
         const acc = this.extractAccount(a.getAttribute('href'));
-        if (acc){ ids.add(acc.id); if (!meta.has(acc.id)) meta.set(acc.id, acc); }
+        if (acc){
+          ids.add(acc.id);
+          if (!meta.has(acc.id)) meta.set(acc.id, acc);
+        }
       });
       if (ids.size) posts.push({ date: dt, ids: [...ids] });
     }
-    posts.sort((a,b)=> a.date - b.date);
+    posts.sort((a,b) => a.date - b.date);
 
-    // minMentions = 1
     const counts = new Map();
-    for (const p of posts){ for (const id of p.ids) counts.set(id, (counts.get(id)||0)+1); }
+    for (const p of posts){
+      for (const id of p.ids){
+        counts.set(id, (counts.get(id) || 0) + 1);
+      }
+    }
     const eligible = [...counts.keys()];
     const elig = new Set(eligible);
 
@@ -429,25 +574,26 @@ const Slide3 = {
       url: (meta.get(id)?.url) || '',
       mentions: counts.get(id) || 1,
       x: 0, y: 0, vx: 0, vy: 0,
-      r: 6 + Math.min(12, (counts.get(id)||1)*1.2)
+      r: 6 + Math.min(12, (counts.get(id) || 1) * 1.2)
     }));
 
-    // links (co-mentions, unweighted layout length for simplicity)
-    const key = (a,b)=> a<b ? `${a}|${b}` : `${b}|${a}`;
+    // links (co-mentions)
+    const key = (a,b) => a < b ? `${a}|${b}` : `${b}|${a}`;
     const map = new Map();
     for (const p of posts){
-      const ids = p.ids.filter(id=>elig.has(id));
-      for (let i=0;i<ids.length;i++){
-        for (let j=i+1;j<ids.length;j++){
+      const ids = p.ids.filter(id => elig.has(id));
+      for (let i = 0; i < ids.length; i++){
+        for (let j = i+1; j < ids.length; j++){
           const k = key(ids[i], ids[j]);
-          map.set(k, (map.get(k)||0)+1);
+          map.set(k, (map.get(k) || 0) + 1);
         }
       }
     }
     this.links = [];
     for (const [k,v] of map){
       const [a,b] = k.split('|');
-      const A = this.nodes.find(n=>n.id===a), B = this.nodes.find(n=>n.id===b);
+      const A = this.nodes.find(n => n.id === a);
+      const B = this.nodes.find(n => n.id === b);
       if (A && B) this.links.push({ a:A, b:B, value:v, len:120 });
     }
   },
@@ -457,24 +603,65 @@ const Slide3 = {
     const W = app.w, H = app.h;
     const N = this.nodes.length || 1;
     const cols = Math.ceil(Math.sqrt(N));
-    this.nodes.forEach((n,i)=>{
-      const x = (i % cols) / (cols-1 || 1);
-      const y = Math.floor(i/cols) / (cols-1 || 1);
-      // margins but let the graph basically fill the screen
-      n.x = 60 + x*(W-120) + (Math.random()-0.5)*20;
-      n.y = 60 + y*(H-120) + (Math.random()-0.5)*20;
-      n.vx = 0; n.vy = 0;
+    this.nodes.forEach((n,i) => {
+      const x = (i % cols) / (cols - 1 || 1);
+      const y = Math.floor(i / cols) / (cols - 1 || 1);
+      n.x = 60 + x * (W - 120) + (Math.random() - 0.5) * 20;
+      n.y = 60 + y * (H - 120) + (Math.random() - 0.5) * 20;
+      n.vx = 0;
+      n.vy = 0;
     });
+  },
+
+  // --- typewriter helper ---
+  advanceText(dt){
+    let remaining = dt;
+    const charsPerSec = this.textSpeed;
+
+    while (remaining > 0 && this.currentSentenceIndex < this.sentStates.length){
+      const state = this.sentStates[this.currentSentenceIndex];
+      const len = state.text.length;
+      const charsLeft = len - state.charsShown;
+
+      if (charsLeft <= 0){
+        this.currentSentenceIndex++;
+        continue;
+      }
+
+      const charsThisFrame = charsPerSec * remaining;
+      if (charsThisFrame >= charsLeft){
+        // finish this sentence and move to next
+        state.charsShown = len;
+        const timeUsed = charsLeft / charsPerSec;
+        remaining -= timeUsed;
+        this.currentSentenceIndex++;
+      } else {
+        state.charsShown += charsThisFrame;
+        remaining = 0;
+      }
+    }
   },
 
   // --- simulation/update ---
   update(dt, app){
-    if (!this.loaded || !this.nodes.length) return;
+    if (!this.loaded || !this.nodes.length) {
+      // still advance timers for text/dot
+      this.textTimer += dt;
+      if (this.textTimer >= this.textDelay){
+        this.textElapsed += dt;
+        this.advanceText(dt);
+      }
+      if (!this.dotVisible && this.textTimer >= this.textDelay + this.dotDelayAfterText){
+        this.dotVisible = true;
+      }
+      return;
+    }
 
-    // advance typewriter state
+    // advance text timers
     this.textTimer += dt;
-    if (this.textTimer >= this.textDelay && this.textCharsShown < this.text.length){
-      this.textCharsShown = Math.min(this.text.length, this.textCharsShown + this.textSpeed * dt);
+    if (this.textTimer >= this.textDelay){
+      this.textElapsed += dt;
+      this.advanceText(dt);
     }
 
     // show dot a few seconds after text starts typing
@@ -484,36 +671,45 @@ const Slide3 = {
 
     const W = app.w, H = app.h, cx = W/2, cy = H/2;
 
-    const springK   = 0.004;
-    const centerK   = 0.001;
-    const friction  = 0.86;
-    const repelK    = 1200;  // node-node
-    const collideK  = 0.22;
+    // dampened forces so layout settles quickly
+    const springK   = 0.003;
+    const centerK   = 0.0015;
+    const friction  = 0.92;
+    const repelK    = 900;   // node-node
+    const collideK  = 0.20;
     const pad       = 6;
 
-    const pointerK  = 8000;
+    const pointerK  = 5000;
     const pointerR  = Math.max(100, Math.min(240, Math.floor(Math.min(W,H)*0.18)));
     const pR2       = pointerR * pointerR;
 
-
     // pairwise repulsion + soft collision
-    for (let i=0;i<this.nodes.length;i++){
+    for (let i = 0; i < this.nodes.length; i++){
       const a = this.nodes[i];
-      for (let j=i+1;j<this.nodes.length;j++){
+      for (let j = i+1; j < this.nodes.length; j++){
         const b = this.nodes[j];
-        let dx = b.x - a.x, dy = b.y - a.y;
+        let dx = b.x - a.x;
+        let dy = b.y - a.y;
         let d2 = dx*dx + dy*dy;
-        if (d2 === 0){ dx=(Math.random()-0.5)*1e-3; dy=(Math.random()-0.5)*1e-3; d2 = dx*dx + dy*dy; }
+        if (d2 === 0){
+          dx = (Math.random()-0.5) * 1e-3;
+          dy = (Math.random()-0.5) * 1e-3;
+          d2 = dx*dx + dy*dy;
+        }
         const d = Math.sqrt(d2);
         const f = repelK / d2;
-        const fx = f * (dx/d), fy = f * (dy/d);
-        a.vx -= fx; a.vy -= fy; b.vx += fx; b.vy += fy;
+        const fx = f * (dx/d);
+        const fy = f * (dy/d);
+        a.vx -= fx; a.vy -= fy;
+        b.vx += fx; b.vy += fy;
 
         const minD = (a.r + b.r) + pad;
         if (d < minD){
           const push = collideK * (minD - d);
-          const pfx = push * (dx/d), pfy = push * (dy/d);
-          a.vx -= pfx; a.vy -= pfy; b.vx += pfx; b.vy += pfy;
+          const pfx = push * (dx/d);
+          const pfy = push * (dy/d);
+          a.vx -= pfx; a.vy -= pfy;
+          b.vx += pfx; b.vy += pfy;
         }
       }
     }
@@ -521,18 +717,22 @@ const Slide3 = {
     // springs along links
     for (const l of this.links){
       const a = l.a, b = l.b;
-      let dx = b.x - a.x, dy = b.y - a.y;
-      const d = Math.hypot(dx,dy) || 1e-6;
+      let dx = b.x - a.x;
+      let dy = b.y - a.y;
+      const d = Math.hypot(dx, dy) || 1e-6;
       const f = springK * (d - l.len);
-      const fx = f * (dx/d), fy = f * (dy/d);
-      a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+      const fx = f * (dx/d);
+      const fy = f * (dy/d);
+      a.vx += fx; a.vy += fy;
+      b.vx -= fx; b.vy -= fy;
     }
 
-    // pointer repulsion: "run away from mouse"
+    // pointer repulsion
     if (this.pointerInside){
       const px = this.px, py = this.py;
       for (const n of this.nodes){
-        const dx = n.x - px, dy = n.y - py;
+        const dx = n.x - px;
+        const dy = n.y - py;
         const d2 = dx*dx + dy*dy;
         if (d2 < pR2){
           const d = Math.sqrt(d2) || 1e-6;
@@ -543,23 +743,54 @@ const Slide3 = {
       }
     }
 
-    // center + integrate
+    // center + integrate with velocity clamp
+    const maxV = 2.5; // cap velocity so nodes don't fly around
     for (const n of this.nodes){
       n.vx += (cx - n.x) * centerK;
-      n.vy *= friction; n.vx *= friction;
-      n.y += n.vy; n.x += n.vx;
+
+      // clamp before friction
+      n.vx = Math.max(-maxV, Math.min(maxV, n.vx));
+      n.vy = Math.max(-maxV, Math.min(maxV, n.vy));
+
+      n.vx *= friction;
+      n.vy *= friction;
+
+      n.x += n.vx;
+      n.y += n.vy;
     }
   },
 
-  // --- draw (graph fullscreen + overlay text + dot) ---
+  // --- draw (graph fullscreen + scattered text + dot) ---
   render(ctx, app){
     ctx.setTransform(1,0,0,1,0,0);
     ctx.fillStyle = '#000';
     ctx.fillRect(0,0,app.w,app.h);
 
-    if (!this.loaded) return;
+    if (!this.loaded){
+      return;
+    }
 
-    // Draw graph labels across the whole screen
+    // Draw edges (white)
+    ctx.globalAlpha = 0.35;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    for (const l of this.links){
+      ctx.beginPath();
+      ctx.moveTo(l.a.x, l.a.y);
+      ctx.lineTo(l.b.x, l.b.y);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // Draw nodes (white circles)
+    for (const n of this.nodes){
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r, 0, Math.PI*2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+    }
+
+    // Draw node labels (NOT bold)
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff';
@@ -572,60 +803,62 @@ const Slide3 = {
       ctx.fillText(label,  n.x, n.y);
     }
 
-
-    // After delay, typewriter text appears at the very top,
-    // with tight black boxes behind each line (overlay).
+    // --- scattered typewriter text ---
     if (this.textTimer >= this.textDelay){
-      const full = this.text;
-      const shown = full.slice(0, Math.floor(this.textCharsShown));
+      const fs = this.textFontSize;
+      const lh = this.textLineHeight;
+      const font = `700 ${fs}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+      const padX = 10;
+      const padY = 6;
 
-      const fs = Math.max(22, Math.min(34, Math.floor(app.w * 0.024))); // bigger & bold
-      const lh = Math.floor(fs * 1.4);
-      const sideMargin = Math.floor(app.w * 0.06);
-      const maxW = app.w - sideMargin*2;
-      const topMargin = 16;
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = font;
 
-      function wrap(c, text, font, width){
-        c.font = font;
+      const wrap = (text, maxW) => {
+        ctx.font = font;
         const words = text.split(/\s+/);
         const lines = [];
         let line = '';
         for (const w of words){
           const test = line ? line + ' ' + w : w;
-          if (c.measureText(test).width <= width || !line) line = test;
-          else { lines.push(line); line = w; }
+          if (ctx.measureText(test).width <= maxW || !line){
+            line = test;
+          } else {
+            lines.push(line);
+            line = w;
+          }
         }
         if (line) lines.push(line);
         return lines;
-      }
+      };
 
-      const font = `700 ${fs}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
-      const lines = wrap(ctx, shown, font, maxW);
+      for (let i = 0; i < this.sentStates.length; i++){
+        const st = this.sentStates[i];
+        const layout = this.sentLayout[i];
+        if (!layout) continue;
 
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'alphabetic';
-      ctx.font = font;
+        const shown = st.text.slice(0, Math.floor(st.charsShown));
+        if (!shown) continue;
 
-      const padX = 10;
-      const padY = 6;
-      let y = topMargin + lh;       // fixed vertical starting point
-      const xStart = sideMargin;
+        const lines = wrap(shown, layout.maxW);
+        let y = layout.y;
+        const xStart = layout.x;
 
-      for (const L of lines){
-        const w = ctx.measureText(L).width;
-        // black box behind line
-        ctx.fillStyle = '#000';
-        ctx.fillRect(
-          xStart - padX,
-          y - lh - padY,
-          w + padX*2,
-          lh + padY*2
-        );
-        // white bold text
-        ctx.fillStyle = '#fff';
-        ctx.fillText(L, xStart, y);
-        y += lh;
-        if (y > app.h * 0.5) break; // don't go too far down
+        for (const L of lines){
+          const w = ctx.measureText(L).width;
+          // tight black box behind line
+          ctx.fillStyle = '#000';
+          ctx.fillRect(
+            xStart - padX,
+            y - lh - padY,
+            w + padX*2,
+            lh + padY*2
+          );
+          // white bold text
+          ctx.fillStyle = '#fff';
+          ctx.fillText(L, xStart, y);
+          y += lh;
+        }
       }
     }
 
@@ -645,6 +878,7 @@ const Slide3 = {
     return this.dotHoverAdvance;
   }
 };
+
 
     // Register slides (each is self-contained)
     app.slides = [ Slide1, Slide2, Slide3 ];
