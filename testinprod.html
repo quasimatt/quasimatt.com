@@ -296,7 +296,6 @@ const Slide2 = {
 };
 
 
-// ============== Slide 3: Social graph + timed typewriter text ==============
 // ============== Slide 3: Social graph + scattered typewriter sentences ==============
 const Slide3 = {
   name: 'social-graph',
@@ -328,9 +327,9 @@ const Slide3 = {
 
   // --- lifecycle ---
   init(app){
-    this.loaded = false; 
+    this.loaded = false;
     this.error = null;
-    this.nodes = []; 
+    this.nodes = [];
     this.links = [];
     this.fontPx = Math.max(14, Math.min(22, Math.floor(app.w * 0.016)));
 
@@ -399,14 +398,22 @@ const Slide3 = {
       this.parseSentences();
     }
 
-    // type layout font
     const fs = Math.max(22, Math.min(34, Math.floor(app.w * 0.024)));
     this.textFontSize = fs;
     this.textLineHeight = Math.floor(fs * 1.4);
 
-    const sideMargin = Math.floor(app.w * 0.06);
+    const W = app.w, H = app.h;
+    const sideMargin = Math.floor(W * 0.06);
     const topMargin = 16;
-    const maxFullW = app.w - sideMargin * 2;
+
+    // Central region where we DON'T want text boxes (so they avoid the graph)
+    const avoidRect = {
+      x: W * 0.15,
+      y: H * 0.15,
+      w: W * 0.7,
+      h: H * 0.7
+    };
+
     const font = `700 ${fs}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
 
     const wrap = (text, maxW) => {
@@ -416,7 +423,7 @@ const Slide3 = {
       let line = '';
       for (const w of words){
         const test = line ? line + ' ' + w : w;
-        if (ctx.measureText(test).width <= maxW || !line) {
+        if (ctx.measureText(test).width <= maxW || !line){
           line = test;
         } else {
           lines.push(line);
@@ -427,56 +434,85 @@ const Slide3 = {
       return lines;
     };
 
+    const intersectsRect = (b, r) => {
+      return !(
+        b.x + b.w <= r.x ||
+        b.x >= r.x + r.w ||
+        b.y + b.h <= r.y ||
+        b.y >= r.y + r.h
+      );
+    };
+
     this.sentLayout = [];
-    const cx = app.w / 2;
-    const cy = app.h / 2;
-    const avoidRadius2 = Math.pow(Math.min(app.w, app.h) * 0.25, 2);
 
     for (let i = 0; i < this.sentences.length; i++){
       const text = this.sentences[i];
 
       if (i === 0){
-        // First sentence: at the top
+        // FIRST SENTENCE: top band, clamped, and kept above the avoidRect
+        const maxW = W - sideMargin * 2;
+        const lines = wrap(text, maxW);
+        const lineWidths = lines.map(L => ctx.measureText(L).width);
+        const textW = Math.min(maxW, Math.max(...lineWidths, 0));
+        const textH = lines.length * this.textLineHeight;
+
+        const maxBottom = avoidRect.y - 10;
+        let y = topMargin + this.textLineHeight;
+        if (y + textH > maxBottom){
+          y = maxBottom - textH;
+        }
+        if (y < topMargin){
+          y = topMargin;
+        }
+
+        const x = sideMargin;
+
+        const box = { x, y: y - this.textLineHeight, w: textW, h: textH + this.textLineHeight };
+
+        if (intersectsRect(box, avoidRect)){
+          const shift = box.y + box.h - avoidRect.y;
+          box.y -= shift;
+        }
+
         this.sentLayout.push({
-          x: sideMargin,
-          y: topMargin + this.textLineHeight,
-          maxW: maxFullW
+          x,
+          y,
+          maxW
         });
       } else {
-        // Subsequent sentences: random positions that avoid the center
-        const maxW = Math.floor(app.w * 0.45);
+        // SUBSEQUENT SENTENCES: random positions, guaranteed on screen and outside avoidRect
+        const maxW = Math.floor(W * 0.4);
+        const lines = wrap(text, maxW);
+        const lineWidths = lines.map(L => ctx.measureText(L).width);
+        const textW = Math.min(maxW, Math.max(...lineWidths, 0));
+        const textH = lines.length * this.textLineHeight;
+
         let best = null;
-        for (let tries = 0; tries < 30; tries++){
-          const x = sideMargin + Math.random() * (app.w - 2 * sideMargin - maxW);
+        const margin = topMargin;
 
-          // rough initial y
-          let y = topMargin + Math.random() * (app.h - 2 * topMargin - this.textLineHeight * 3);
+        for (let tries = 0; tries < 60; tries++){
+          const x = margin + Math.random() * (W - 2 * margin - textW);
+          const y = margin + Math.random() * (H - 2 * margin - textH);
 
-          const lines = wrap(text, maxW);
-          const textH = lines.length * this.textLineHeight;
-          if (y + textH > app.h - topMargin){
-            y = app.h - topMargin - textH;
+          const box = { x, y: y - this.textLineHeight, w: textW, h: textH + this.textLineHeight };
+
+          if (!intersectsRect(box, avoidRect)){
+            best = { x, y, maxW };
+            break;
           }
+        }
 
-          const boxCx = x + maxW / 2;
-          const boxCy = y + textH / 2;
-          const dx = boxCx - cx;
-          const dy = boxCy - cy;
-          if (dx*dx + dy*dy < avoidRadius2) {
-            // too close to center; try again
-            continue;
+        if (!best){
+          // Fallback: place under the avoidRect, still clamped to the screen
+          const x = sideMargin;
+          const yStart = avoidRect.y + avoidRect.h + 10;
+          let y = yStart;
+          if (y + textH > H - topMargin){
+            y = H - topMargin - textH;
           }
           best = { x, y, maxW };
-          break;
         }
-        if (!best){
-          // fallback: bottom-left-ish
-          best = {
-            x: sideMargin,
-            y: app.h - topMargin - this.textLineHeight * 2,
-            maxW
-          };
-        }
+
         this.sentLayout.push(best);
       }
     }
@@ -630,7 +666,6 @@ const Slide3 = {
 
       const charsThisFrame = charsPerSec * remaining;
       if (charsThisFrame >= charsLeft){
-        // finish this sentence and move to next
         state.charsShown = len;
         const timeUsed = charsLeft / charsPerSec;
         remaining -= timeUsed;
@@ -644,42 +679,29 @@ const Slide3 = {
 
   // --- simulation/update ---
   update(dt, app){
-    if (!this.loaded || !this.nodes.length) {
-      // still advance timers for text/dot
-      this.textTimer += dt;
-      if (this.textTimer >= this.textDelay){
-        this.textElapsed += dt;
-        this.advanceText(dt);
-      }
-      if (!this.dotVisible && this.textTimer >= this.textDelay + this.dotDelayAfterText){
-        this.dotVisible = true;
-      }
-      return;
-    }
-
-    // advance text timers
+    // advance text timers always
     this.textTimer += dt;
     if (this.textTimer >= this.textDelay){
       this.textElapsed += dt;
       this.advanceText(dt);
     }
-
-    // show dot a few seconds after text starts typing
     if (!this.dotVisible && this.textTimer >= this.textDelay + this.dotDelayAfterText){
       this.dotVisible = true;
     }
 
+    if (!this.loaded || !this.nodes.length) return;
+
     const W = app.w, H = app.h, cx = W/2, cy = H/2;
 
-    // dampened forces so layout settles quickly
-    const springK   = 0.003;
-    const centerK   = 0.0015;
-    const friction  = 0.92;
-    const repelK    = 900;   // node-node
+    // faster, more lively forces
+    const springK   = 0.005;   // was 0.003
+    const centerK   = 0.0025;  // was 0.0015
+    const friction  = 0.88;    // was 0.93 (less friction = more motion)
+    const repelK    = 1400;    // was 900
     const collideK  = 0.20;
     const pad       = 6;
 
-    const pointerK  = 5000;
+    const pointerK  = 6000;    // stronger reaction to mouse
     const pointerR  = Math.max(100, Math.min(240, Math.floor(Math.min(W,H)*0.18)));
     const pR2       = pointerR * pointerR;
 
@@ -744,11 +766,10 @@ const Slide3 = {
     }
 
     // center + integrate with velocity clamp
-    const maxV = 2.5; // cap velocity so nodes don't fly around
+    const maxV = 4.0; // was 2.2 — let nodes move faster
     for (const n of this.nodes){
       n.vx += (cx - n.x) * centerK;
 
-      // clamp before friction
       n.vx = Math.max(-maxV, Math.min(maxV, n.vx));
       n.vy = Math.max(-maxV, Math.min(maxV, n.vy));
 
@@ -766,41 +787,39 @@ const Slide3 = {
     ctx.fillStyle = '#000';
     ctx.fillRect(0,0,app.w,app.h);
 
-    if (!this.loaded){
-      return;
-    }
+    if (this.loaded){
+      // Draw edges (white)
+      ctx.globalAlpha = 0.35;
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1;
+      for (const l of this.links){
+        ctx.beginPath();
+        ctx.moveTo(l.a.x, l.a.y);
+        ctx.lineTo(l.b.x, l.b.y);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
 
-    // Draw edges (white)
-    ctx.globalAlpha = 0.35;
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    for (const l of this.links){
-      ctx.beginPath();
-      ctx.moveTo(l.a.x, l.a.y);
-      ctx.lineTo(l.b.x, l.b.y);
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
+      // Draw nodes (white circles)
+      for (const n of this.nodes){
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r, 0, Math.PI*2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+      }
 
-    // Draw nodes (white circles)
-    for (const n of this.nodes){
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, n.r, 0, Math.PI*2);
+      // Draw node labels (NOT bold)
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       ctx.fillStyle = '#fff';
-      ctx.fill();
-    }
-
-    // Draw node labels (NOT bold)
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#fff';
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 3;
-    for (const n of this.nodes){
-      ctx.font = `${this.fontPx}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
-      const label = `@${n.handle}`;
-      ctx.strokeText(label, n.x, n.y);
-      ctx.fillText(label,  n.x, n.y);
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 3;
+      for (const n of this.nodes){
+        ctx.font = `${this.fontPx}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+        const label = `@${n.handle}`;
+        ctx.strokeText(label, n.x, n.y);
+        ctx.fillText(label,  n.x, n.y);
+      }
     }
 
     // --- scattered typewriter text ---
