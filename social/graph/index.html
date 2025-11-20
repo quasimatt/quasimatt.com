@@ -35,6 +35,10 @@
         <input type="checkbox" id="showEdges" checked>
         show edges
       </label>
+      <label>
+        <input type="checkbox" id="showLabels" checked>
+        show labels
+      </label>
       <label>since: <strong>2025-09-22</strong></label>
       <span class="hint">(zoom: scroll, pan: drag.)</span>
       <span id="status" class="hint"></span>
@@ -60,10 +64,21 @@
   const graphEl = document.getElementById('graph');
 
   const showEdgesInput = document.getElementById('showEdges');
+  const showLabelsInput = document.getElementById('showLabels');
+
   let showEdges = true;
+  let showLabels = true;
 
   showEdgesInput.addEventListener('change', () => {
     showEdges = showEdgesInput.checked;
+    render();
+  });
+
+  showLabelsInput.addEventListener('change', () => {
+    showLabels = showLabelsInput.checked;
+    if (!showLabels) {
+      clearLabels();
+    }
     render();
   });
 
@@ -196,20 +211,20 @@
     // 1) Raw mention counts for filtering (no decay)
     const rawMentionCounts = new Map();
 
-    // 2) Decayed mention totals for normalization
+    // 2) "Decayed" mention totals, but we now use pure counts (no time decay)
     const decayedMentions = new Map();
 
-    // 3) Decayed co-mentions
+    // 3) Co-mentions (no decay)
     const linkKey = (a,b) => a < b ? `${a}|${b}` : `${b}|${a}`;
     const linksMap = new Map();
 
     for (const p of rawPosts) {
       const ids = [...p.ids];
-      const w = Math.max(0, 1 - 0.01 * daysAgo(p.date));
 
+      // NO DECAY: each mention and co-mention counts as 1 regardless of date
       for (const id of ids) {
         rawMentionCounts.set(id, (rawMentionCounts.get(id) || 0) + 1);
-        decayedMentions.set(id, (decayedMentions.get(id) || 0) + w);
+        decayedMentions.set(id, (decayedMentions.get(id) || 0) + 1);
       }
 
       if (ids.length >= 2) {
@@ -218,7 +233,7 @@
             const a = ids[i], b = ids[j];
             const key = linkKey(a, b);
             const prev = linksMap.get(key) || { source: a, target: b, co: 0 };
-            prev.co += w;
+            prev.co += 1; // pure co-mention count
             linksMap.set(key, prev);
           }
         }
@@ -236,7 +251,7 @@
       if (!eligible.has(source) || !eligible.has(target)) continue;
       const denom = (decayedMentions.get(source) || 0) + (decayedMentions.get(target) || 0);
       if (denom <= 0) continue;
-      const value = co / denom;
+      const value = co / denom; // still normalized, but using pure counts
       if (value > 0) links.push({ source, target, value });
     }
 
@@ -361,7 +376,7 @@
   let nodes=[], links=[];
   let animId = null;
 
-  // (A) adjacency map available to the simulation
+  // adjacency map available to the simulation + tooltip
   let neighbors = new Map();
 
   function layoutGraph() {
@@ -387,7 +402,7 @@
       l.b = nodes.find(n=>n.id===l.target);
     });
 
-    // (A) Build neighbors map once per layout
+    // Build neighbors map once per layout
     neighbors = new Map();
     for (const n of nodes) neighbors.set(n.id, new Set());
     for (const l of links) {
@@ -405,13 +420,12 @@
       const centerK = 0.0005;
       const friction = 0.76;
 
-      // (B) Tunables for repulsion/collision
-      const kRepelConnected = 300;   // lighter for neighbors
-      const kRepelNonEdge   = 2500;  // stronger for non-neighbors
-      const kCollide        = 0.25;  // small stable separation
-      const collidePad      = 6;     // extra pixels between "disks"
+      const kRepelConnected = 300;
+      const kRepelNonEdge   = 2500;
+      const kCollide        = 0.25;
+      const collidePad      = 6;
 
-      // (B) Repulsion + collision
+      // Repulsion + collision
       for (let i=0;i<nodes.length;i++){
         for (let j=i+1;j<nodes.length;j++){
           const a=nodes[i], b=nodes[j];
@@ -420,7 +434,6 @@
           if (d2===0){ dx=(Math.random()-0.5)*1e-3; dy=(Math.random()-0.5)*1e-3; d2=dx*dx+dy*dy; }
           const dist = Math.sqrt(d2);
 
-          // stronger push if NOT directly connected
           const nbA = neighbors.get(a.id);
           const areNeighbors = nbA ? nbA.has(b.id) : false;
           const kRepel = areNeighbors ? kRepelConnected : kRepelNonEdge;
@@ -429,7 +442,6 @@
           const fx = f * (dx / dist), fy = f * (dy / dist);
           a.vx -= fx; a.vy -= fy; b.vx += fx; b.vy += fy;
 
-          // collision: prevent overlap of drawn circles
           const minDist = (nodeRadius(a) + nodeRadius(b) + collidePad);
           if (dist < minDist) {
             const overlap = (minDist - dist);
@@ -477,18 +489,16 @@
 
   // ===== Render =====
 
-  // <<< CHANGED: track global max mentions to scale radius relatively
   let globalMaxMentions = 1; // updated in recomputeAndRender
 
   function nodeRadius(n){
     const minR = 4;
-    const maxR = 18; // matches old max (4 + 14)
+    const maxR = 18;
     const m = n.mentions || 0;
     const M = globalMaxMentions || 1;
     const t = M > 0 ? (m / M) : 0;
     return minR + (maxR - minR) * t;
   }
-  // <<< END CHANGE
 
   const labels = new Map();
 
@@ -523,36 +533,47 @@
     ctx.restore();
 
     // Labels in screen space (platform-aware)
-    for (const n of nodes){
-      let el = labels.get(n.id);
-      if (!el) {
-        el = document.createElement('a');
-        el.href = n.url || (n.platform === 'ig'
-          ? `https://instagram.com/${n.handle}`
-          : `https://twitter.com/${n.handle}`);
-        el.target = '_blank'; el.rel = 'noopener';
-        el.style.position = 'absolute';
-        el.style.color = '#fff';
-        el.style.textDecoration = 'none';
-        el.style.fontSize = '12px';
-        el.style.padding = '2px 3px';
-        el.style.borderRadius = '6px';
-        el.textContent = `@${n.handle}`;
-        canvas.parentElement.appendChild(el);
-        labels.set(n.id, el);
-      } else {
-        el.href = n.url;
-        el.textContent = `@${n.handle}`;
+    if (showLabels) {
+      for (const n of nodes){
+        let el = labels.get(n.id);
+        if (!el) {
+          el = document.createElement('a');
+          el.href = n.url || (n.platform === 'ig'
+            ? `https://instagram.com/${n.handle}`
+            : `https://twitter.com/${n.handle}`);
+          el.target = '_blank'; el.rel = 'noopener';
+          el.style.position = 'absolute';
+          el.style.color = '#fff';
+          el.style.textDecoration = 'none';
+          el.style.fontSize = '12px';
+          el.style.padding = '2px 3px';
+          el.style.borderRadius = '6px';
+          el.textContent = `@${n.handle}`;
+          canvas.parentElement.appendChild(el);
+          labels.set(n.id, el);
+        } else {
+          el.href = n.url;
+          el.textContent = `@${n.handle}`;
+          el.style.display = 'block';
+        }
+        const r = nodeRadius(n);
+        const sx = offsetX + n.x*zoom;
+        const sy = offsetY + n.y*zoom;
+        const rect = el.getBoundingClientRect();
+        el.style.left = (sx - rect.width/2) + 'px';
+        el.style.top  = (sy - r*zoom - rect.height - 4) + 'px';
       }
-      const r = nodeRadius(n);
-      const sx = offsetX + n.x*zoom;
-      const sy = offsetY + n.y*zoom;
-      const rect = el.getBoundingClientRect();
-      el.style.left = (sx - rect.width/2) + 'px';
-      el.style.top  = (sy - r*zoom - rect.height - 4) + 'px';
+    } else {
+      clearLabels();
     }
   }
-  function clearLabels(){ labels.forEach(el=>el.remove()); labels.clear(); }
+
+  function clearLabels(){
+    labels.forEach(el => {
+      if (el.parentElement) el.parentElement.removeChild(el);
+    });
+    labels.clear();
+  }
 
   // Tooltip
   canvas.addEventListener('mousemove', (e) => {
@@ -566,11 +587,9 @@
       if (dx*dx+dy*dy <= r*r) { hit = n; break; }
     }
     if (hit) {
-      // <<< CHANGED: add connections count in tooltip
       const connCount = (neighbors.get(hit.id) && neighbors.get(hit.id).size) || 0;
       tooltip.style.display='block';
       tooltip.textContent = `@${hit.handle} — mentions: ${hit.mentions} — connections: ${connCount}`;
-      // <<< END CHANGE
       tooltip.style.left = e.clientX + 'px';
       tooltip.style.top  = e.clientY + 'px';
     } else {
@@ -590,9 +609,7 @@
     const vals = [...mentionTotals.values()];
     const maxMentions = vals.length ? Math.max(...vals) : 1;
 
-    // <<< CHANGED: store for nodeRadius scaling
     globalMaxMentions = maxMentions;
-    // <<< END CHANGE
 
     minCountInput.max = String(maxMentions);
     if ((+minCountInput.value || 1) > maxMentions) {
