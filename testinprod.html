@@ -146,9 +146,9 @@
     // When the LAST sentence's center reaches the screen center: freeze, turn bg black, last sentence white, hold 1s → next slide.
     const Slide2 = {
       name: 'slide-2-marquee',
-      speed: 120, // px/sec @ dpr=1
+      speed: 180, // px/sec @ dpr=1
       items: [],
-      fontSize: 24,
+      fontSize: 40,
       text:
         "i imagine a closeness with others that cannot exist. i compare my relationship to myself with my relationship to others. i have access to my every thought and feeling. i will never have this access for someone else. friends feel like acquaintences. acquaintences feel like strangers. everyone feels far away.",
       nextIndex: 0,
@@ -432,16 +432,17 @@ const Slide3 = {
 
     const W = app.w, H = app.h, cx = W/2, cy = H/2;
 
-    const springK   = 0.006;
-    const centerK   = 0.0008;
-    const friction  = 0.78;
-    const repelK    = 2200;  // node-node
-    const collideK  = 0.25;
+    const springK   = 0.004;
+    const centerK   = 0.001;
+    const friction  = 0.86;
+    const repelK    = 1200;  // node-node
+    const collideK  = 0.22;
     const pad       = 6;
 
-    const pointerK  = 18000;
+    const pointerK  = 8000;
     const pointerR  = Math.max(100, Math.min(240, Math.floor(Math.min(W,H)*0.18)));
     const pR2       = pointerR * pointerR;
+
 
     // pairwise repulsion + soft collision
     for (let i=0;i<this.nodes.length;i++){
@@ -513,11 +514,12 @@ const Slide3 = {
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 3;
     for (const n of this.nodes){
-      ctx.font = `600 ${this.fontPx}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
+      ctx.font = `${this.fontPx}px "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif`;
       const label = `@${n.handle}`;
       ctx.strokeText(label, n.x, n.y);
       ctx.fillText(label,  n.x, n.y);
     }
+
 
     // After delay, typewriter text appears at the very top,
     // with tight black boxes behind each line (overlay).
