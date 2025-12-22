@@ -32,68 +32,63 @@
   <p>enter your x handle to see your wrapped:</p>
 
   <p>
-    @<input id="handleInput" type="text" placeholder="username" />
+    @<input
+      id="handleInput"
+      type="text"
+      placeholder="username"
+      list="handleSuggestions"
+      autocomplete="off"
+    />
     <button id="goButton">go</button>
   </p>
 
-  <div id="result"></div>
+  <!-- native autocomplete list -->
+  <datalist id="handleSuggestions"></datalist>
 
   <script>
     let PEOPLE = null;
+    let HANDLES = [];
 
     fetch("/social/wrapped2025/people.json")
       .then(r => r.json())
       .then(data => {
         PEOPLE = data;
+        HANDLES = Object.keys(data);
+
+        const list = document.getElementById("handleSuggestions");
+        HANDLES.forEach(h => {
+          const opt = document.createElement("option");
+          opt.value = h;
+          list.appendChild(opt);
+        });
       });
 
-    function renderWrapped(handle) {
-      const data = PEOPLE[handle];
-      if (!data) {
-        return `<p>no data found for @${handle}.</p>`;
+    function goToWrapped(handle) {
+      // normalize
+      const clean = handle.replace(/^@/, "").toLowerCase();
+
+      if (!PEOPLE || !PEOPLE[clean]) {
+        alert("no wrapped available for @" + clean);
+        return;
       }
 
-      const topConnections = data.top_connections
-        .map(([h, n]) => `@${h}`)
-        .join(", ");
-
-      return `
-        <p><strong>@${handle}</strong></p>
-
-        <p>
-          you were mentioned on <strong>${data.days_seen}</strong> days this year.
-        </p>
-
-        <p>
-          you appeared with <strong>${data.connections}</strong> different people.
-        </p>
-
-        <p>
-          lately, our trajectory is <strong>${data.friendship_trend.label}</strong>.
-        </p>
-
-        <p>
-          when you show up, it's usually in <strong>${data.social_style.replace("_", " ")}</strong> hangs
-          (avg group size: ${data.avg_group_size}).
-        </p>
-
-        <p>
-          we most often crossed paths on <strong>${data.top_weekday}</strong>s.
-        </p>
-
-        <p>
-          you most often appeared alongside ${topConnections}.
-        </p>
-      `;
+      // redirect to per-user page
+      window.location.href = `/social/wrapped2025/${clean}`;
     }
 
     document.getElementById("goButton").onclick = () => {
       const raw = document.getElementById("handleInput").value.trim();
-      if (!raw || !PEOPLE) return;
-
-      const handle = raw.replace(/^@/, "").toLowerCase();
-      document.getElementById("result").innerHTML = renderWrapped(handle);
+      if (!raw) return;
+      goToWrapped(raw);
     };
+
+    document.getElementById("handleInput").addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        goToWrapped(e.target.value);
+      }
+    });
   </script>
 </body>
 </html>
+
