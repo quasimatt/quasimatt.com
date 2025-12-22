@@ -8,7 +8,92 @@
 
 <body>
   <p>quasimatt.com wrapped 2025</p>
+
   <p>wow. 2025 sure was interesting. here's what's happened on quasimatt.com since 9/22/25.</p>
-  <p>over 89 days, 210 individual people were mentioned on quasimatt.com. on average, people were mentioned on 4.7 days. 112 people were mentioned only once. the day with the most mentions was 10/31 (halloween), with 33 people mentioned. the most social week mentioned 57 people. the least social week mentioned 10. an average of 6.5 people were mentioned per day, with the busiest days being saturday and friday and the quietest day being sunday. the strongest co-mentioned pair was mihir and jacob. the strongest co-mentioned trio was cass, maisy, and kathy. the most mentioned person was mihir, who appeared with 116 different people. the longest mention streak was john, who was mentioned 8 days in a row. the word "queen" appeared on quasimatt.com 54 times in 2025.</p>
+
+  <p>
+    over 89 days, 210 individual people were mentioned on quasimatt.com.
+    on average, people were mentioned on 4.7 days.
+    112 people were mentioned only once.
+    the day with the most mentions was 10/31 (halloween), with 33 people mentioned.
+    the most social week mentioned 57 people.
+    the least social week mentioned 10.
+    an average of 6.5 people were mentioned per day,
+    with the busiest days being saturday and friday and the quietest day being sunday.
+    the strongest co-mentioned pair was mihir and jacob.
+    the strongest co-mentioned trio was cass, maisy, and kathy.
+    the most mentioned person was mihir, who appeared with 116 different people.
+    the longest mention streak was john, who was mentioned 8 days in a row.
+    the word "queen" appeared on quasimatt.com 54 times in 2025.
+  </p>
+
+  <p>—</p>
+
+  <p>enter your x handle to see your wrapped:</p>
+
+  <p>
+    @<input id="handleInput" type="text" placeholder="username" />
+    <button id="goButton">go</button>
+  </p>
+
+  <div id="result"></div>
+
+  <script>
+    let PEOPLE = null;
+
+    fetch("/social/wrapped2025/people.json")
+      .then(r => r.json())
+      .then(data => {
+        PEOPLE = data;
+      });
+
+    function renderWrapped(handle) {
+      const data = PEOPLE[handle];
+      if (!data) {
+        return `<p>no data found for @${handle}.</p>`;
+      }
+
+      const topConnections = data.top_connections
+        .map(([h, n]) => `@${h}`)
+        .join(", ");
+
+      return `
+        <p><strong>@${handle}</strong></p>
+
+        <p>
+          you were mentioned on <strong>${data.days_seen}</strong> days this year.
+        </p>
+
+        <p>
+          you appeared with <strong>${data.connections}</strong> different people.
+        </p>
+
+        <p>
+          lately, our trajectory is <strong>${data.friendship_trend.label}</strong>.
+        </p>
+
+        <p>
+          when you show up, it's usually in <strong>${data.social_style.replace("_", " ")}</strong> hangs
+          (avg group size: ${data.avg_group_size}).
+        </p>
+
+        <p>
+          we most often crossed paths on <strong>${data.top_weekday}</strong>s.
+        </p>
+
+        <p>
+          you most often appeared alongside ${topConnections}.
+        </p>
+      `;
+    }
+
+    document.getElementById("goButton").onclick = () => {
+      const raw = document.getElementById("handleInput").value.trim();
+      if (!raw || !PEOPLE) return;
+
+      const handle = raw.replace(/^@/, "").toLowerCase();
+      document.getElementById("result").innerHTML = renderWrapped(handle);
+    };
+  </script>
 </body>
 </html>
