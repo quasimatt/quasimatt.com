@@ -8,105 +8,97 @@
 
 <body>
 
-  <p><strong>quasimatt.com wrapped 2025</strong></p>
+  <p>quasimatt.com wrapped 2025</p>
 
   <p>
     @<input
       id="handleInput"
       type="text"
-      placeholder="enter your x handle"
+      placeholder="username"
       list="handleSuggestions"
       autocomplete="off"
       style="border:none; outline:none; font:inherit; width:16ch;"
     />
-    <span id="goHint" style="opacity:0.6;">↵</span>
   </p>
 
   <datalist id="handleSuggestions"></datalist>
 
-  <div id="content"></div>
+  <!-- OVERVIEW (UNCHANGED COPY) -->
+  <div id="overview">
+    <p>wow. 2025 sure was interesting. here's what's happened on quasimatt.com since 9/22/25.</p>
+
+    <p>
+      over 89 days, 210 individual people were mentioned on quasimatt.com.
+      on average, people were mentioned on 4.7 days.
+      112 people were mentioned only once.
+      the day with the most mentions was 10/31 (halloween), with 33 people mentioned.
+      the most social week mentioned 57 people.
+      the least social week mentioned 10.
+      an average of 6.5 people were mentioned per day,
+      with the busiest days being saturday and friday and the quietest day being sunday.
+      the strongest co-mentioned pair was mihir and jacob.
+      the strongest co-mentioned trio was cass, maisy, and kathy.
+      the most mentioned person was mihir, who appeared with 116 different people.
+      the longest mention streak was john, who was mentioned 8 days in a row.
+      the word "queen" appeared on quasimatt.com 54 times in 2025.
+    </p>
+  </div>
+
+  <!-- PERSONAL WRAPPED -->
+  <div id="result"></div>
 
   <script>
     let PEOPLE = null;
-    let HANDLES = [];
 
     fetch("/social/wrapped2025/wrapped2025_people.json")
       .then(r => r.json())
       .then(data => {
         PEOPLE = data;
-        HANDLES = Object.keys(data);
 
         const list = document.getElementById("handleSuggestions");
-        HANDLES.forEach(h => {
+        Object.keys(data).forEach(h => {
           const opt = document.createElement("option");
           opt.value = h;
           list.appendChild(opt);
         });
 
-        const handleFromURL = getHandleFromURL();
+        const handleFromURL = window.location.search.replace("?", "");
         if (handleFromURL) {
           document.getElementById("handleInput").value = handleFromURL;
-          render(handleFromURL);
-        } else {
-          renderOverview();
+          renderWrapped(handleFromURL);
         }
       });
 
-    function getHandleFromURL() {
-      const q = window.location.search.replace("?", "").trim();
-      return q || null;
-    }
+    function renderWrapped(raw) {
+      const handle = raw.replace(/^@/, "").toLowerCase();
+      const data = PEOPLE && PEOPLE[handle];
 
-    function renderOverview() {
-      document.getElementById("content").innerHTML = `
-        <p>wow. 2025 sure was interesting. here's what's happened on quasimatt.com since 9/22/25.</p>
-
-        <p>
-          over 89 days, 210 individual people were mentioned.
-          on average, people were mentioned on 4.7 days.
-          112 people appeared only once.
-          the most social day was halloween (33 people).
-          the busiest days were friday and saturday.
-          the strongest pair was mihir and jacob.
-          the word “queen” appeared 54 times.
-        </p>
-
-        <p>
-          enter your handle above to see how you fit into it.
-        </p>
-      `;
-    }
-
-    function renderWrapped(handle) {
-      const data = PEOPLE[handle];
+      document.getElementById("overview").style.display = "none";
+      window.history.pushState({}, "", `?${handle}`);
 
       if (!data) {
-        return `
+        document.getElementById("result").innerHTML = `
           <p><strong>@${handle}</strong></p>
-          <p>
-            you were mentioned on quasimatt.com, but not frequently enough
-            to receive a wrapped this year.
-          </p>
-          <p>
-            maybe next year.
-          </p>
+          <p>you were mentioned on quasimatt.com, but not frequently enough to receive a wrapped this year.</p>
         `;
+        return;
       }
 
       const topConnections = data.top_connections
         .map(c => `@${c.handle}`)
         .join(", ");
 
-      return `
+      document.getElementById("result").innerHTML = `
         <p><strong>@${handle}</strong></p>
 
         <p>
-          you were mentioned on <strong>${data.days_seen}</strong> days,
-          placing you in the <strong>${data.days_seen_percentile}th percentile</strong>.
+          you were mentioned on <strong>${data.days_seen}</strong> days this year
+          (${data.days_seen_percentile}th percentile).
         </p>
 
         <p>
-          you appeared with <strong>${data.connections}</strong> different people.
+          you appeared with <strong>${data.connections}</strong> different people
+          (${data.connections_percentile}th percentile).
         </p>
 
         <p>
@@ -129,16 +121,10 @@
       `;
     }
 
-    function render(handle) {
-      const clean = handle.replace(/^@/, "").toLowerCase();
-      window.history.pushState({}, "", `?${clean}`);
-      document.getElementById("content").innerHTML = renderWrapped(clean);
-    }
-
     document.getElementById("handleInput").addEventListener("keydown", e => {
       if (e.key === "Enter") {
         e.preventDefault();
-        render(e.target.value);
+        renderWrapped(e.target.value);
       }
     });
   </script>
