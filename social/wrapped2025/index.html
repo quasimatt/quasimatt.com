@@ -7,44 +7,24 @@
 </head>
 
 <body>
-  <p>quasimatt.com wrapped 2025</p>
 
-  <p>wow. 2025 sure was interesting. here's what's happened on quasimatt.com since 9/22/25.</p>
-
-  <p>
-    over 89 days, 210 individual people were mentioned on quasimatt.com.
-    on average, people were mentioned on 4.7 days.
-    112 people were mentioned only once.
-    the day with the most mentions was 10/31 (halloween), with 33 people mentioned.
-    the most social week mentioned 57 people.
-    the least social week mentioned 10.
-    an average of 6.5 people were mentioned per day,
-    with the busiest days being saturday and friday and the quietest day being sunday.
-    the strongest co-mentioned pair was mihir and jacob.
-    the strongest co-mentioned trio was cass, maisy, and kathy.
-    the most mentioned person was mihir, who appeared with 116 different people.
-    the longest mention streak was john, who was mentioned 8 days in a row.
-    the word "queen" appeared on quasimatt.com 54 times in 2025.
-  </p>
-
-  <p>—</p>
-
-  <p>enter your x handle to see your wrapped:</p>
+  <p><strong>quasimatt.com wrapped 2025</strong></p>
 
   <p>
     @<input
       id="handleInput"
       type="text"
-      placeholder="username"
+      placeholder="enter your x handle"
       list="handleSuggestions"
       autocomplete="off"
+      style="border:none; outline:none; font:inherit; width:16ch;"
     />
-    <button id="goButton">go</button>
+    <span id="goHint" style="opacity:0.6;">↵</span>
   </p>
 
   <datalist id="handleSuggestions"></datalist>
 
-  <div id="result"></div>
+  <div id="content"></div>
 
   <script>
     let PEOPLE = null;
@@ -63,24 +43,54 @@
           list.appendChild(opt);
         });
 
-        // auto-render if URL has ?handle
         const handleFromURL = getHandleFromURL();
-        if (handleFromURL && PEOPLE[handleFromURL]) {
+        if (handleFromURL) {
           document.getElementById("handleInput").value = handleFromURL;
-          document.getElementById("result").innerHTML = renderWrapped(handleFromURL);
+          render(handleFromURL);
+        } else {
+          renderOverview();
         }
       });
 
     function getHandleFromURL() {
-      // URL like ?jacobarluck
       const q = window.location.search.replace("?", "").trim();
       return q || null;
     }
 
+    function renderOverview() {
+      document.getElementById("content").innerHTML = `
+        <p>wow. 2025 sure was interesting. here's what's happened on quasimatt.com since 9/22/25.</p>
+
+        <p>
+          over 89 days, 210 individual people were mentioned.
+          on average, people were mentioned on 4.7 days.
+          112 people appeared only once.
+          the most social day was halloween (33 people).
+          the busiest days were friday and saturday.
+          the strongest pair was mihir and jacob.
+          the word “queen” appeared 54 times.
+        </p>
+
+        <p>
+          enter your handle above to see how you fit into it.
+        </p>
+      `;
+    }
+
     function renderWrapped(handle) {
       const data = PEOPLE[handle];
+
       if (!data) {
-        return `<p>no wrapped available for @${handle}.</p>`;
+        return `
+          <p><strong>@${handle}</strong></p>
+          <p>
+            you were mentioned on quasimatt.com, but not frequently enough
+            to receive a wrapped this year.
+          </p>
+          <p>
+            maybe next year.
+          </p>
+        `;
       }
 
       const topConnections = data.top_connections
@@ -91,7 +101,7 @@
         <p><strong>@${handle}</strong></p>
 
         <p>
-          you were mentioned on <strong>${data.days_seen}</strong> days this year,
+          you were mentioned on <strong>${data.days_seen}</strong> days,
           placing you in the <strong>${data.days_seen_percentile}th percentile</strong>.
         </p>
 
@@ -104,7 +114,8 @@
         </p>
 
         <p>
-          when you show up, it’s usually in <strong>${data.social_style.replace("_", " ")}</strong> hangs
+          when you show up, it’s usually in
+          <strong>${data.social_style.replace("_", " ")}</strong> hangs
           (avg group size: ${data.avg_group_size}).
         </p>
 
@@ -118,33 +129,19 @@
       `;
     }
 
-    function goToWrapped(raw) {
-      const clean = raw.replace(/^@/, "").toLowerCase();
-
-      if (!PEOPLE || !PEOPLE[clean]) {
-        alert("no wrapped available for @" + clean);
-        return;
-      }
-
-      // update URL without reload
+    function render(handle) {
+      const clean = handle.replace(/^@/, "").toLowerCase();
       window.history.pushState({}, "", `?${clean}`);
-      document.getElementById("result").innerHTML = renderWrapped(clean);
+      document.getElementById("content").innerHTML = renderWrapped(clean);
     }
-
-    document.getElementById("goButton").onclick = () => {
-      const raw = document.getElementById("handleInput").value.trim();
-      if (!raw) return;
-      goToWrapped(raw);
-    };
 
     document.getElementById("handleInput").addEventListener("keydown", e => {
       if (e.key === "Enter") {
         e.preventDefault();
-        goToWrapped(e.target.value);
+        render(e.target.value);
       }
     });
   </script>
+
 </body>
 </html>
-
-
