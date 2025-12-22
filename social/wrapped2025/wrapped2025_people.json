@@ -1,0 +1,1506 @@
+{
+  "_casscore": {
+    "days_seen": 13,
+    "days_seen_percentile": 96.7,
+    "connections": 105,
+    "connections_percentile": 99.5,
+    "most_distant_person": {
+      "handle": "steviepxyz",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "f4eth",
+        "count": 11
+      },
+      {
+        "handle": "blissposting",
+        "count": 10
+      },
+      {
+        "handle": "afflictedgirl",
+        "count": 9
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.1429
+    },
+    "avg_group_size": 15.85,
+    "social_style": "normie",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "hard_boiledbabe": {
+    "days_seen": 3,
+    "days_seen_percentile": 84.3,
+    "connections": 41,
+    "connections_percentile": 86.7,
+    "most_distant_person": {
+      "handle": "dariocchiali",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "makenaseeney",
+        "count": 2
+      },
+      {
+        "handle": "__mihir",
+        "count": 2
+      },
+      {
+        "handle": "kitvolta",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.0495
+    },
+    "avg_group_size": 15.67,
+    "social_style": "normie",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "jacobarluck": {
+    "days_seen": 23,
+    "days_seen_percentile": 99.0,
+    "connections": 57,
+    "connections_percentile": 94.8,
+    "most_distant_person": {
+      "handle": "parkerjayp",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "__mihir",
+        "count": 16
+      },
+      {
+        "handle": "conejocapital",
+        "count": 11
+      },
+      {
+        "handle": "colludingnode",
+        "count": 7
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.0824
+    },
+    "avg_group_size": 6.43,
+    "social_style": "inner_circle",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "__mihir": {
+    "days_seen": 31,
+    "days_seen_percentile": 100.0,
+    "connections": 116,
+    "connections_percentile": 100.0,
+    "most_distant_person": {
+      "handle": "alexismccarthy",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "jacobarluck",
+        "count": 16
+      },
+      {
+        "handle": "colludingnode",
+        "count": 12
+      },
+      {
+        "handle": "arbitragegoth",
+        "count": 7
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.0824
+    },
+    "avg_group_size": 8.39,
+    "social_style": "inner_circle",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "donotdelay": {
+    "days_seen": 3,
+    "days_seen_percentile": 84.3,
+    "connections": 55,
+    "connections_percentile": 93.3,
+    "most_distant_person": {
+      "handle": "dariocchiali",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "_casscore",
+        "count": 3
+      },
+      {
+        "handle": "blissposting",
+        "count": 3
+      },
+      {
+        "handle": "f4eth",
+        "count": 3
+      }
+    ],
+    "friendship_trend": {
+      "label": "flat",
+      "slope": 0.0
+    },
+    "avg_group_size": 24.67,
+    "social_style": "partygoer",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "gettles": {
+    "days_seen": 8,
+    "days_seen_percentile": 93.8,
+    "connections": 52,
+    "connections_percentile": 92.4,
+    "most_distant_person": {
+      "handle": "dinfowars",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "bangerz",
+        "count": 5
+      },
+      {
+        "handle": "colludingnode",
+        "count": 4
+      },
+      {
+        "handle": "__mihir",
+        "count": 3
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.0165
+    },
+    "avg_group_size": 10.0,
+    "social_style": "normie",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "blissposting": {
+    "days_seen": 10,
+    "days_seen_percentile": 96.2,
+    "connections": 85,
+    "connections_percentile": 98.1,
+    "most_distant_person": {
+      "handle": "steviepxyz",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "_casscore",
+        "count": 10
+      },
+      {
+        "handle": "f4eth",
+        "count": 8
+      },
+      {
+        "handle": "afflictedgirl",
+        "count": 7
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.1319
+    },
+    "avg_group_size": 15.9,
+    "social_style": "normie",
+    "top_weekday": "Saturday",
+    "orientation": "straight"
+  },
+  "karmen_paley": {
+    "days_seen": 3,
+    "days_seen_percentile": 84.3,
+    "connections": 16,
+    "connections_percentile": 48.6,
+    "most_distant_person": {
+      "handle": "steviepxyz",
+      "hops": 4
+    },
+    "top_connections": [
+      {
+        "handle": "chill_gay_guy",
+        "count": 3
+      },
+      {
+        "handle": "michaleenultra",
+        "count": 3
+      },
+      {
+        "handle": "k_compss",
+        "count": 3
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.011
+    },
+    "avg_group_size": 9.33,
+    "social_style": "normie",
+    "top_weekday": "Tuesday",
+    "orientation": "gay"
+  },
+  "luoser": {
+    "days_seen": 4,
+    "days_seen_percentile": 88.1,
+    "connections": 43,
+    "connections_percentile": 87.6,
+    "most_distant_person": {
+      "handle": "dariocchiali",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "__mihir",
+        "count": 2
+      },
+      {
+        "handle": "colludingnode",
+        "count": 2
+      },
+      {
+        "handle": "natashaghoskins",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.1044
+    },
+    "avg_group_size": 12.5,
+    "social_style": "normie",
+    "top_weekday": "Friday",
+    "orientation": "bisexual"
+  },
+  "sowaasays": {
+    "days_seen": 10,
+    "days_seen_percentile": 96.2,
+    "connections": 29,
+    "connections_percentile": 70.0,
+    "most_distant_person": {
+      "handle": "afabes",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "arbitragegoth",
+        "count": 10
+      },
+      {
+        "handle": "whoisjillblutt",
+        "count": 6
+      },
+      {
+        "handle": "__mihir",
+        "count": 4
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.0495
+    },
+    "avg_group_size": 6.2,
+    "social_style": "inner_circle",
+    "top_weekday": "Tuesday",
+    "orientation": "bisexual"
+  },
+  "mayechkins": {
+    "days_seen": 5,
+    "days_seen_percentile": 89.0,
+    "connections": 36,
+    "connections_percentile": 81.9,
+    "most_distant_person": {
+      "handle": "emilywmebane",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "__mihir",
+        "count": 4
+      },
+      {
+        "handle": "jacobarluck",
+        "count": 2
+      },
+      {
+        "handle": "arbitragegoth",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.0604
+    },
+    "avg_group_size": 9.2,
+    "social_style": "normie",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "alex_williamsa": {
+    "days_seen": 4,
+    "days_seen_percentile": 88.1,
+    "connections": 15,
+    "connections_percentile": 44.3,
+    "most_distant_person": {
+      "handle": "brontecook",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "kanethomasdx",
+        "count": 2
+      },
+      {
+        "handle": "kat_hamiltonn",
+        "count": 2
+      },
+      {
+        "handle": "allcaps_christ",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.022
+    },
+    "avg_group_size": 6.0,
+    "social_style": "inner_circle",
+    "top_weekday": "Friday",
+    "orientation": "gay"
+  },
+  "rabaab08": {
+    "days_seen": 6,
+    "days_seen_percentile": 90.5,
+    "connections": 9,
+    "connections_percentile": 23.8,
+    "most_distant_person": {
+      "handle": "afabes",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "conejocapital",
+        "count": 6
+      },
+      {
+        "handle": "jacobarluck",
+        "count": 3
+      },
+      {
+        "handle": "colludingnode",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.0495
+    },
+    "avg_group_size": 4.0,
+    "social_style": "inner_circle",
+    "top_weekday": "Friday",
+    "orientation": "gay"
+  },
+  "negroprogrammer": {
+    "days_seen": 8,
+    "days_seen_percentile": 93.8,
+    "connections": 36,
+    "connections_percentile": 81.9,
+    "most_distant_person": {
+      "handle": "emilywmebane",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "jacobarluck",
+        "count": 6
+      },
+      {
+        "handle": "__mihir",
+        "count": 6
+      },
+      {
+        "handle": "arbitragegoth",
+        "count": 5
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.0934
+    },
+    "avg_group_size": 8.38,
+    "social_style": "inner_circle",
+    "top_weekday": "Tuesday",
+    "orientation": "bisexual"
+  },
+  "morejelly": {
+    "days_seen": 3,
+    "days_seen_percentile": 84.3,
+    "connections": 22,
+    "connections_percentile": 63.8,
+    "most_distant_person": {
+      "handle": "itsissa_xo",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "alex_williamsa",
+        "count": 2
+      },
+      {
+        "handle": "jeauxhan",
+        "count": 2
+      },
+      {
+        "handle": "kanethomasdx",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.0385
+    },
+    "avg_group_size": 9.33,
+    "social_style": "normie",
+    "top_weekday": "Friday",
+    "orientation": "gay"
+  },
+  "kev_esh": {
+    "days_seen": 4,
+    "days_seen_percentile": 88.1,
+    "connections": 31,
+    "connections_percentile": 71.0,
+    "most_distant_person": {
+      "handle": "wdcollier",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "delta_alpha_ohm",
+        "count": 3
+      },
+      {
+        "handle": "aleqth",
+        "count": 3
+      },
+      {
+        "handle": "adamberninger",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.0495
+    },
+    "avg_group_size": 11.0,
+    "social_style": "normie",
+    "top_weekday": "Wednesday",
+    "orientation": "gay"
+  },
+  "delta_alpha_ohm": {
+    "days_seen": 8,
+    "days_seen_percentile": 93.8,
+    "connections": 43,
+    "connections_percentile": 87.6,
+    "most_distant_person": {
+      "handle": "aesthetics_grad",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "__mihir",
+        "count": 3
+      },
+      {
+        "handle": "kev_esh",
+        "count": 3
+      },
+      {
+        "handle": "aleqth",
+        "count": 3
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.0549
+    },
+    "avg_group_size": 8.38,
+    "social_style": "inner_circle",
+    "top_weekday": "Wednesday",
+    "orientation": "bisexual"
+  },
+  "aleqth": {
+    "days_seen": 4,
+    "days_seen_percentile": 88.1,
+    "connections": 31,
+    "connections_percentile": 71.0,
+    "most_distant_person": {
+      "handle": "dariocchiali",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "kev_esh",
+        "count": 3
+      },
+      {
+        "handle": "delta_alpha_ohm",
+        "count": 3
+      },
+      {
+        "handle": "haiverart",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.0604
+    },
+    "avg_group_size": 10.75,
+    "social_style": "normie",
+    "top_weekday": "Tuesday",
+    "orientation": "gay"
+  },
+  "chill_gay_guy": {
+    "days_seen": 8,
+    "days_seen_percentile": 93.8,
+    "connections": 58,
+    "connections_percentile": 95.2,
+    "most_distant_person": {
+      "handle": "dariocchiali",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "michaleenultra",
+        "count": 6
+      },
+      {
+        "handle": "k_compss",
+        "count": 5
+      },
+      {
+        "handle": "colludingnode",
+        "count": 4
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.0769
+    },
+    "avg_group_size": 12.0,
+    "social_style": "normie",
+    "top_weekday": "Friday",
+    "orientation": "bisexual"
+  },
+  "whoisjillblutt": {
+    "days_seen": 6,
+    "days_seen_percentile": 90.5,
+    "connections": 9,
+    "connections_percentile": 23.8,
+    "most_distant_person": {
+      "handle": "alexismccarthy",
+      "hops": 4
+    },
+    "top_connections": [
+      {
+        "handle": "sowaasays",
+        "count": 6
+      },
+      {
+        "handle": "arbitragegoth",
+        "count": 6
+      },
+      {
+        "handle": "mayechkins",
+        "count": 1
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.0549
+    },
+    "avg_group_size": 4.17,
+    "social_style": "inner_circle",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "arbitragegoth": {
+    "days_seen": 14,
+    "days_seen_percentile": 97.1,
+    "connections": 54,
+    "connections_percentile": 92.9,
+    "most_distant_person": {
+      "handle": "parkerjayp",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "sowaasays",
+        "count": 10
+      },
+      {
+        "handle": "__mihir",
+        "count": 7
+      },
+      {
+        "handle": "whoisjillblutt",
+        "count": 6
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.1264
+    },
+    "avg_group_size": 7.57,
+    "social_style": "inner_circle",
+    "top_weekday": "Tuesday",
+    "orientation": "straight"
+  },
+  "michaleenultra": {
+    "days_seen": 10,
+    "days_seen_percentile": 96.2,
+    "connections": 59,
+    "connections_percentile": 95.7,
+    "most_distant_person": {
+      "handle": "dariocchiali",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "k_compss",
+        "count": 8
+      },
+      {
+        "handle": "chill_gay_guy",
+        "count": 6
+      },
+      {
+        "handle": "hen_arber",
+        "count": 4
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.011
+    },
+    "avg_group_size": 10.4,
+    "social_style": "normie",
+    "top_weekday": "Friday",
+    "orientation": "bisexual"
+  },
+  "thesoberthug": {
+    "days_seen": 7,
+    "days_seen_percentile": 91.4,
+    "connections": 57,
+    "connections_percentile": 94.8,
+    "most_distant_person": {
+      "handle": "dariocchiali",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "f4eth",
+        "count": 7
+      },
+      {
+        "handle": "_casscore",
+        "count": 4
+      },
+      {
+        "handle": "wesamo__",
+        "count": 4
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.0165
+    },
+    "avg_group_size": 13.43,
+    "social_style": "normie",
+    "top_weekday": "Thursday",
+    "orientation": "bisexual"
+  },
+  "being_on_line": {
+    "days_seen": 3,
+    "days_seen_percentile": 84.3,
+    "connections": 35,
+    "connections_percentile": 80.5,
+    "most_distant_person": {
+      "handle": "aesthetics_grad",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "haiverart",
+        "count": 2
+      },
+      {
+        "handle": "kev_esh",
+        "count": 2
+      },
+      {
+        "handle": "delta_alpha_ohm",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.033
+    },
+    "avg_group_size": 14.67,
+    "social_style": "normie",
+    "top_weekday": "Tuesday",
+    "orientation": "bisexual"
+  },
+  "jeauxhan": {
+    "days_seen": 3,
+    "days_seen_percentile": 84.3,
+    "connections": 16,
+    "connections_percentile": 48.6,
+    "most_distant_person": {
+      "handle": "afabes",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "kanethomasdx",
+        "count": 3
+      },
+      {
+        "handle": "kat_hamiltonn",
+        "count": 2
+      },
+      {
+        "handle": "allcaps_christ",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.0714
+    },
+    "avg_group_size": 8.33,
+    "social_style": "inner_circle",
+    "top_weekday": "Friday",
+    "orientation": "gay"
+  },
+  "tanyaef_": {
+    "days_seen": 4,
+    "days_seen_percentile": 88.1,
+    "connections": 28,
+    "connections_percentile": 68.1,
+    "most_distant_person": {
+      "handle": "dariocchiali",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "conejocapital",
+        "count": 4
+      },
+      {
+        "handle": "jacobarluck",
+        "count": 3
+      },
+      {
+        "handle": "__mihir",
+        "count": 3
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.1209
+    },
+    "avg_group_size": 10.25,
+    "social_style": "normie",
+    "top_weekday": "Tuesday",
+    "orientation": "gay"
+  },
+  "bangerz": {
+    "days_seen": 7,
+    "days_seen_percentile": 91.4,
+    "connections": 44,
+    "connections_percentile": 88.1,
+    "most_distant_person": {
+      "handle": "dinfowars",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "gettles",
+        "count": 5
+      },
+      {
+        "handle": "__mihir",
+        "count": 3
+      },
+      {
+        "handle": "colludingnode",
+        "count": 3
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.0165
+    },
+    "avg_group_size": 10.29,
+    "social_style": "normie",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "coldhealing": {
+    "days_seen": 4,
+    "days_seen_percentile": 88.1,
+    "connections": 41,
+    "connections_percentile": 86.7,
+    "most_distant_person": {
+      "handle": "dariocchiali",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "__mihir",
+        "count": 2
+      },
+      {
+        "handle": "colludingnode",
+        "count": 2
+      },
+      {
+        "handle": "afflictedgirl",
+        "count": 1
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.0165
+    },
+    "avg_group_size": 11.75,
+    "social_style": "normie",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "augustaghast": {
+    "days_seen": 3,
+    "days_seen_percentile": 84.3,
+    "connections": 45,
+    "connections_percentile": 90.0,
+    "most_distant_person": {
+      "handle": "afabes",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "_casscore",
+        "count": 3
+      },
+      {
+        "handle": "f4eth",
+        "count": 3
+      },
+      {
+        "handle": "__mihir",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.033
+    },
+    "avg_group_size": 19.0,
+    "social_style": "partygoer",
+    "top_weekday": "Thursday",
+    "orientation": "straight"
+  },
+  "nogoodtwts": {
+    "days_seen": 3,
+    "days_seen_percentile": 84.3,
+    "connections": 26,
+    "connections_percentile": 66.2,
+    "most_distant_person": {
+      "handle": "emilywmebane",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "jacobarluck",
+        "count": 3
+      },
+      {
+        "handle": "__mihir",
+        "count": 3
+      },
+      {
+        "handle": "wesamo__",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "flat",
+      "slope": 0.0
+    },
+    "avg_group_size": 12.33,
+    "social_style": "normie",
+    "top_weekday": "Sunday",
+    "orientation": "gay"
+  },
+  "colludingnode": {
+    "days_seen": 22,
+    "days_seen_percentile": 98.6,
+    "connections": 85,
+    "connections_percentile": 98.1,
+    "most_distant_person": {
+      "handle": "alexismccarthy",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "__mihir",
+        "count": 12
+      },
+      {
+        "handle": "conejocapital",
+        "count": 9
+      },
+      {
+        "handle": "jacobarluck",
+        "count": 7
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.1593
+    },
+    "avg_group_size": 8.5,
+    "social_style": "inner_circle",
+    "top_weekday": "Friday",
+    "orientation": "bisexual"
+  },
+  "divine_economy": {
+    "days_seen": 3,
+    "days_seen_percentile": 84.3,
+    "connections": 33,
+    "connections_percentile": 79.0,
+    "most_distant_person": {
+      "handle": "0xmikeyf",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "addis0nraestan",
+        "count": 1
+      },
+      {
+        "handle": "_casscore",
+        "count": 1
+      },
+      {
+        "handle": "hard_boiledbabe",
+        "count": 1
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.0495
+    },
+    "avg_group_size": 12.0,
+    "social_style": "normie",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "kanethomasdx": {
+    "days_seen": 8,
+    "days_seen_percentile": 93.8,
+    "connections": 64,
+    "connections_percentile": 96.2,
+    "most_distant_person": {
+      "handle": "dariocchiali",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "_casscore",
+        "count": 3
+      },
+      {
+        "handle": "jeauxhan",
+        "count": 3
+      },
+      {
+        "handle": "f4eth",
+        "count": 3
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.0879
+    },
+    "avg_group_size": 11.38,
+    "social_style": "normie",
+    "top_weekday": "Saturday",
+    "orientation": "gay"
+  },
+  "f4eth": {
+    "days_seen": 16,
+    "days_seen_percentile": 98.1,
+    "connections": 96,
+    "connections_percentile": 98.6,
+    "most_distant_person": {
+      "handle": "steviepxyz",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "_casscore",
+        "count": 11
+      },
+      {
+        "handle": "wesamo__",
+        "count": 8
+      },
+      {
+        "handle": "blissposting",
+        "count": 8
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.1538
+    },
+    "avg_group_size": 12.62,
+    "social_style": "normie",
+    "top_weekday": "Thursday",
+    "orientation": "bisexual"
+  },
+  "yuan_han_li": {
+    "days_seen": 3,
+    "days_seen_percentile": 84.3,
+    "connections": 34,
+    "connections_percentile": 80.0,
+    "most_distant_person": {
+      "handle": "dinfowars",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "xorkiki",
+        "count": 3
+      },
+      {
+        "handle": "_casscore",
+        "count": 2
+      },
+      {
+        "handle": "__mihir",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.011
+    },
+    "avg_group_size": 16.33,
+    "social_style": "partygoer",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "elizardbethc": {
+    "days_seen": 3,
+    "days_seen_percentile": 84.3,
+    "connections": 49,
+    "connections_percentile": 91.9,
+    "most_distant_person": {
+      "handle": "afabes",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "_casscore",
+        "count": 3
+      },
+      {
+        "handle": "blissposting",
+        "count": 3
+      },
+      {
+        "handle": "donotdelay",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.022
+    },
+    "avg_group_size": 21.33,
+    "social_style": "partygoer",
+    "top_weekday": "Monday",
+    "orientation": "straight"
+  },
+  "rhynotic": {
+    "days_seen": 3,
+    "days_seen_percentile": 84.3,
+    "connections": 27,
+    "connections_percentile": 67.6,
+    "most_distant_person": {
+      "handle": "dom_msmsmsm",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "haiverart",
+        "count": 2
+      },
+      {
+        "handle": "clay_devlin",
+        "count": 2
+      },
+      {
+        "handle": "kev_esh",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.0879
+    },
+    "avg_group_size": 12.33,
+    "social_style": "normie",
+    "top_weekday": "Monday",
+    "orientation": "gay"
+  },
+  "xorkiki": {
+    "days_seen": 5,
+    "days_seen_percentile": 89.0,
+    "connections": 45,
+    "connections_percentile": 90.0,
+    "most_distant_person": {
+      "handle": "brontecook",
+      "hops": 2
+    },
+    "top_connections": [
+      {
+        "handle": "__mihir",
+        "count": 4
+      },
+      {
+        "handle": "yuan_han_li",
+        "count": 3
+      },
+      {
+        "handle": "wesamo__",
+        "count": 3
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.0385
+    },
+    "avg_group_size": 13.2,
+    "social_style": "normie",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "k_compss": {
+    "days_seen": 9,
+    "days_seen_percentile": 94.8,
+    "connections": 32,
+    "connections_percentile": 78.1,
+    "most_distant_person": {
+      "handle": "dariocchiali",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "michaleenultra",
+        "count": 8
+      },
+      {
+        "handle": "chill_gay_guy",
+        "count": 5
+      },
+      {
+        "handle": "hen_arber",
+        "count": 4
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.0165
+    },
+    "avg_group_size": 7.44,
+    "social_style": "inner_circle",
+    "top_weekday": "Friday",
+    "orientation": "gay"
+  },
+  "callaselish": {
+    "days_seen": 3,
+    "days_seen_percentile": 84.3,
+    "connections": 27,
+    "connections_percentile": 67.6,
+    "most_distant_person": {
+      "handle": "emilywmebane",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "_casscore",
+        "count": 2
+      },
+      {
+        "handle": "__mihir",
+        "count": 2
+      },
+      {
+        "handle": "blissposting",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.0275
+    },
+    "avg_group_size": 11.67,
+    "social_style": "normie",
+    "top_weekday": "Wednesday",
+    "orientation": "straight"
+  },
+  "conejocapital": {
+    "days_seen": 24,
+    "days_seen_percentile": 99.5,
+    "connections": 75,
+    "connections_percentile": 97.1,
+    "most_distant_person": {
+      "handle": "brontecook",
+      "hops": 2
+    },
+    "top_connections": [
+      {
+        "handle": "wesamo__",
+        "count": 12
+      },
+      {
+        "handle": "jacobarluck",
+        "count": 11
+      },
+      {
+        "handle": "colludingnode",
+        "count": 9
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.2637
+    },
+    "avg_group_size": 7.17,
+    "social_style": "inner_circle",
+    "top_weekday": "Sunday",
+    "orientation": "bisexual"
+  },
+  "maroon6fan": {
+    "days_seen": 3,
+    "days_seen_percentile": 84.3,
+    "connections": 21,
+    "connections_percentile": 57.6,
+    "most_distant_person": {
+      "handle": "emilywmebane",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "gettles",
+        "count": 2
+      },
+      {
+        "handle": "_casscore",
+        "count": 1
+      },
+      {
+        "handle": "jacobarluck",
+        "count": 1
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.044
+    },
+    "avg_group_size": 8.33,
+    "social_style": "inner_circle",
+    "top_weekday": "Monday",
+    "orientation": "straight"
+  },
+  "wesamo__": {
+    "days_seen": 15,
+    "days_seen_percentile": 97.6,
+    "connections": 99,
+    "connections_percentile": 99.0,
+    "most_distant_person": {
+      "handle": "afabes",
+      "hops": 2
+    },
+    "top_connections": [
+      {
+        "handle": "conejocapital",
+        "count": 12
+      },
+      {
+        "handle": "f4eth",
+        "count": 8
+      },
+      {
+        "handle": "_casscore",
+        "count": 7
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.1154
+    },
+    "avg_group_size": 12.53,
+    "social_style": "normie",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "kitvolta": {
+    "days_seen": 6,
+    "days_seen_percentile": 90.5,
+    "connections": 34,
+    "connections_percentile": 80.0,
+    "most_distant_person": {
+      "handle": "brontecook",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "jacobarluck",
+        "count": 4
+      },
+      {
+        "handle": "__mihir",
+        "count": 3
+      },
+      {
+        "handle": "hard_boiledbabe",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.0769
+    },
+    "avg_group_size": 8.5,
+    "social_style": "inner_circle",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "afflictedgirl": {
+    "days_seen": 9,
+    "days_seen_percentile": 94.8,
+    "connections": 68,
+    "connections_percentile": 96.7,
+    "most_distant_person": {
+      "handle": "alexismccarthy",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "_casscore",
+        "count": 9
+      },
+      {
+        "handle": "f4eth",
+        "count": 8
+      },
+      {
+        "handle": "__mihir",
+        "count": 7
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.0934
+    },
+    "avg_group_size": 14.33,
+    "social_style": "normie",
+    "top_weekday": "Saturday",
+    "orientation": "bisexual"
+  },
+  "natashaghoskins": {
+    "days_seen": 4,
+    "days_seen_percentile": 88.1,
+    "connections": 45,
+    "connections_percentile": 90.0,
+    "most_distant_person": {
+      "handle": "dariocchiali",
+      "hops": 3
+    },
+    "top_connections": [
+      {
+        "handle": "__mihir",
+        "count": 3
+      },
+      {
+        "handle": "cait_cavell",
+        "count": 2
+      },
+      {
+        "handle": "mirandamartell",
+        "count": 2
+      }
+    ],
+    "friendship_trend": {
+      "label": "deteriorating",
+      "slope": -0.011
+    },
+    "avg_group_size": 13.75,
+    "social_style": "normie",
+    "top_weekday": "Wednesday",
+    "orientation": "straight"
+  },
+  "hen_arber": {
+    "days_seen": 4,
+    "days_seen_percentile": 88.1,
+    "connections": 16,
+    "connections_percentile": 48.6,
+    "most_distant_person": {
+      "handle": "steviepxyz",
+      "hops": 4
+    },
+    "top_connections": [
+      {
+        "handle": "michaleenultra",
+        "count": 4
+      },
+      {
+        "handle": "k_compss",
+        "count": 4
+      },
+      {
+        "handle": "chill_gay_guy",
+        "count": 3
+      }
+    ],
+    "friendship_trend": {
+      "label": "improving",
+      "slope": 0.0385
+    },
+    "avg_group_size": 8.25,
+    "social_style": "inner_circle",
+    "top_weekday": "Tuesday",
+    "orientation": "gay"
+  }
+}
