@@ -42,8 +42,9 @@
     <button id="goButton">go</button>
   </p>
 
-  <!-- native autocomplete list -->
   <datalist id="handleSuggestions"></datalist>
+
+  <div id="result"></div>
 
   <script>
     let PEOPLE = null;
@@ -61,19 +62,73 @@
           opt.value = h;
           list.appendChild(opt);
         });
+
+        // auto-render if URL has ?handle
+        const handleFromURL = getHandleFromURL();
+        if (handleFromURL && PEOPLE[handleFromURL]) {
+          document.getElementById("handleInput").value = handleFromURL;
+          document.getElementById("result").innerHTML = renderWrapped(handleFromURL);
+        }
       });
 
-    function goToWrapped(handle) {
-      // normalize
-      const clean = handle.replace(/^@/, "").toLowerCase();
+    function getHandleFromURL() {
+      // URL like ?jacobarluck
+      const q = window.location.search.replace("?", "").trim();
+      return q || null;
+    }
+
+    function renderWrapped(handle) {
+      const data = PEOPLE[handle];
+      if (!data) {
+        return `<p>no wrapped available for @${handle}.</p>`;
+      }
+
+      const topConnections = data.top_connections
+        .map(c => `@${c.handle}`)
+        .join(", ");
+
+      return `
+        <p><strong>@${handle}</strong></p>
+
+        <p>
+          you were mentioned on <strong>${data.days_seen}</strong> days this year,
+          placing you in the <strong>${data.days_seen_percentile}th percentile</strong>.
+        </p>
+
+        <p>
+          you appeared with <strong>${data.connections}</strong> different people.
+        </p>
+
+        <p>
+          lately, our trajectory is <strong>${data.friendship_trend.label}</strong>.
+        </p>
+
+        <p>
+          when you show up, it’s usually in <strong>${data.social_style.replace("_", " ")}</strong> hangs
+          (avg group size: ${data.avg_group_size}).
+        </p>
+
+        <p>
+          we most often crossed paths on <strong>${data.top_weekday}</strong>s.
+        </p>
+
+        <p>
+          you most often appeared alongside ${topConnections}.
+        </p>
+      `;
+    }
+
+    function goToWrapped(raw) {
+      const clean = raw.replace(/^@/, "").toLowerCase();
 
       if (!PEOPLE || !PEOPLE[clean]) {
         alert("no wrapped available for @" + clean);
         return;
       }
 
-      // redirect to per-user page
-      window.location.href = `/social/wrapped2025/${clean}`;
+      // update URL without reload
+      window.history.pushState({}, "", `?${clean}`);
+      document.getElementById("result").innerHTML = renderWrapped(clean);
     }
 
     document.getElementById("goButton").onclick = () => {
@@ -91,4 +146,5 @@
   </script>
 </body>
 </html>
+
 
