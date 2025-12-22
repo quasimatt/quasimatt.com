@@ -1,0 +1,331 @@
+{
+  "__mihir": {
+    "display_name": "mihir",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 31,
+    "raw_mentions": 82
+  },
+  "conejocapital": {
+    "display_name": "bunny",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 25,
+    "raw_mentions": 65
+  },
+  "jacobarluck": {
+    "display_name": "jacob",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 23,
+    "raw_mentions": 51
+  },
+  "colludingnode": {
+    "display_name": "connor",
+    "gender": "man",
+    "location": "manhattan",
+    "days_seen": 22,
+    "raw_mentions": 41
+  },
+  "f4eth": {
+    "display_name": "kathy",
+    "gender": "woman",
+    "location": "brooklyn",
+    "days_seen": 16,
+    "raw_mentions": 35
+  },
+  "wesamo__": {
+    "display_name": "wesam",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 15,
+    "raw_mentions": 41
+  },
+  "arbitragegoth": {
+    "display_name": "john",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 14,
+    "raw_mentions": 31
+  },
+  "_casscore": {
+    "display_name": "cass",
+    "gender": "woman",
+    "location": "brooklyn",
+    "days_seen": 13,
+    "raw_mentions": 19
+  },
+  "sowaasays": {
+    "display_name": "sowa",
+    "gender": "woman",
+    "location": "brooklyn",
+    "days_seen": 10,
+    "raw_mentions": 22
+  },
+  "michaleenultra": {
+    "display_name": "michael",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 10,
+    "raw_mentions": 17
+  },
+  "blissposting": {
+    "display_name": "david",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 10,
+    "raw_mentions": 15
+  },
+  "afflictedgirl": {
+    "display_name": "maisy",
+    "gender": "woman",
+    "location": "brooklyn",
+    "days_seen": 9,
+    "raw_mentions": 18
+  },
+  "k_compss": {
+    "display_name": "kyle",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 9,
+    "raw_mentions": 18
+  },
+  "delta_alpha_ohm": {
+    "display_name": "josh",
+    "gender": "man",
+    "location": "manhattan",
+    "days_seen": 8,
+    "raw_mentions": 13
+  },
+  "negroprogrammer": {
+    "display_name": "regy",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 8,
+    "raw_mentions": 18
+  },
+  "gettles": {
+    "display_name": "macy",
+    "gender": "woman",
+    "location": "manhattan",
+    "days_seen": 8,
+    "raw_mentions": 20
+  },
+  "kanethomasdx": {
+    "display_name": "kane",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 8,
+    "raw_mentions": 17
+  },
+  "chill_gay_guy": {
+    "display_name": "jackson",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 8,
+    "raw_mentions": 18
+  },
+  "thesoberthug": {
+    "display_name": "sargent",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 7,
+    "raw_mentions": 10
+  },
+  "bangerz": {
+    "display_name": "bangerz",
+    "gender": "woman",
+    "location": "other",
+    "days_seen": 7,
+    "raw_mentions": 14
+  },
+  "kitvolta": {
+    "display_name": "kit",
+    "gender": "woman",
+    "location": "brooklyn",
+    "days_seen": 6,
+    "raw_mentions": 7
+  },
+  "whoisjillblutt": {
+    "display_name": "jill",
+    "gender": "woman",
+    "location": "brooklyn",
+    "days_seen": 6,
+    "raw_mentions": 9
+  },
+  "rabaab08": {
+    "display_name": "rabaab",
+    "gender": "woman",
+    "location": "other",
+    "days_seen": 6,
+    "raw_mentions": 9
+  },
+  "mayechkins": {
+    "display_name": "maya",
+    "gender": "woman",
+    "location": "brooklyn",
+    "days_seen": 5,
+    "raw_mentions": 6
+  },
+  "xorkiki": {
+    "display_name": "kiki",
+    "gender": "woman",
+    "location": "brooklyn",
+    "days_seen": 5,
+    "raw_mentions": 13
+  },
+  "natashaghoskins": {
+    "display_name": "natasha",
+    "gender": "woman",
+    "location": "unknown",
+    "days_seen": 4,
+    "raw_mentions": 5
+  },
+  "hen_arber": {
+    "display_name": "henry",
+    "gender": "man",
+    "location": "manhattan",
+    "days_seen": 4,
+    "raw_mentions": 5
+  },
+  "coldhealing": {
+    "display_name": "coldhealing",
+    "gender": "man",
+    "location": "manhattan",
+    "days_seen": 4,
+    "raw_mentions": 5
+  },
+  "kev_esh": {
+    "display_name": "kevin",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 4,
+    "raw_mentions": 6
+  },
+  "alex_williamsa": {
+    "display_name": "alex",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 4,
+    "raw_mentions": 7
+  },
+  "aleqth": {
+    "display_name": "aleqth",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 4,
+    "raw_mentions": 4
+  },
+  "luoser": {
+    "display_name": "lisa",
+    "gender": "woman",
+    "location": "manhattan",
+    "days_seen": 4,
+    "raw_mentions": 7
+  },
+  "tanyaef_": {
+    "display_name": "tanya",
+    "gender": "woman",
+    "location": "other",
+    "days_seen": 4,
+    "raw_mentions": 6
+  },
+  "maroon6fan": {
+    "display_name": "kyle",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 3,
+    "raw_mentions": 4
+  },
+  "divine_economy": {
+    "display_name": "david",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 3,
+    "raw_mentions": 4
+  },
+  "nogoodtwts": {
+    "display_name": "keeks",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 3,
+    "raw_mentions": 7
+  },
+  "hard_boiledbabe": {
+    "display_name": "anna",
+    "gender": "woman",
+    "location": "brooklyn",
+    "days_seen": 3,
+    "raw_mentions": 4
+  },
+  "callaselish": {
+    "display_name": "calla",
+    "gender": "woman",
+    "location": "brooklyn",
+    "days_seen": 3,
+    "raw_mentions": 3
+  },
+  "being_on_line": {
+    "display_name": "ruby",
+    "gender": "man",
+    "location": "queens",
+    "days_seen": 3,
+    "raw_mentions": 4
+  },
+  "karmen_paley": {
+    "display_name": "karmen",
+    "gender": "nonbinary",
+    "location": "brooklyn",
+    "days_seen": 3,
+    "raw_mentions": 3
+  },
+  "yuan_han_li": {
+    "display_name": "yuan",
+    "gender": "man",
+    "location": "unknown",
+    "days_seen": 3,
+    "raw_mentions": 5
+  },
+  "morejelly": {
+    "display_name": "jasper",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 3,
+    "raw_mentions": 4
+  },
+  "elizardbethc": {
+    "display_name": "elizabeth",
+    "gender": "woman",
+    "location": "brooklyn",
+    "days_seen": 3,
+    "raw_mentions": 3
+  },
+  "donotdelay": {
+    "display_name": "ariel",
+    "gender": "woman",
+    "location": "queens",
+    "days_seen": 3,
+    "raw_mentions": 4
+  },
+  "augustaghast": {
+    "display_name": "august",
+    "gender": "man",
+    "location": "other",
+    "days_seen": 3,
+    "raw_mentions": 6
+  },
+  "jeauxhan": {
+    "display_name": "john",
+    "gender": "man",
+    "location": "manhattan",
+    "days_seen": 3,
+    "raw_mentions": 7
+  },
+  "rhynotic": {
+    "display_name": "adam",
+    "gender": "man",
+    "location": "brooklyn",
+    "days_seen": 3,
+    "raw_mentions": 4
+  }
+}
