@@ -112,9 +112,16 @@
       const topDaysPct = topPercentile(data.days_seen_percentile);
       const topConnectionsPct = topPercentile(data.connections_percentile);
 
-      const topConnections = data.top_connections
-        .map(c => personLink(c.handle))
-        .join(", ");
+      function formatList(items) {
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
+}
+
+const topConnections = formatList(
+  data.top_connections.map(c => personLink(c.handle))
+);
+
 
       let socialLine = "";
       if (data.social_style === "partygoer") {
