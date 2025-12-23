@@ -48,15 +48,18 @@
   <div id="result"></div>
 
   <script>
-  let PEOPLE = null;
+    let PEOPLE = null;
+    let IDENTITIES = {};
 
-  fetch("/social/wrapped2025/wrapped2025_people.json")
-    .then(r => r.json())
-    .then(data => {
-      PEOPLE = data;
+    Promise.all([
+      fetch("/social/wrapped2025/wrapped2025_people.json").then(r => r.json()),
+      fetch("/social/wrapped2025/people_identity.json").then(r => r.json())
+    ]).then(([peopleData, identityData]) => {
+      PEOPLE = peopleData;
+      IDENTITIES = identityData;
 
       const list = document.getElementById("handleSuggestions");
-      Object.keys(data).forEach(h => {
+      Object.keys(peopleData).forEach(h => {
         const opt = document.createElement("option");
         opt.value = h;
         list.appendChild(opt);
@@ -69,51 +72,64 @@
       }
     });
 
-  function renderWrapped(raw) {
-    const handle = raw.replace(/^@/, "").toLowerCase();
-    const data = PEOPLE && PEOPLE[handle];
+    function personLink(handle) {
+      const h = handle.replace(/^@/, "").toLowerCase();
+      const identity = IDENTITIES[h];
 
-    document.getElementById("overview").style.display = "none";
-    window.history.pushState({}, "", `?${handle}`);
+      if (!identity) return `@${h}`;
 
-    if (!data) {
+      return `<a href="${identity.url}">${identity.name}</a>`;
+    }
+
+    function topPercentile(p) {
+      const v = Math.max(0.1, 100 - p);
+      return v < 1 ? `${v.toFixed(1)}%` : `${Math.round(v)}%`;
+    }
+
+    function renderWrapped(raw) {
+      const handle = raw.replace(/^@/, "").toLowerCase();
+      const data = PEOPLE && PEOPLE[handle];
+
+      document.getElementById("overview").style.display = "none";
+      window.history.pushState({}, "", `?${handle}`);
+
+      if (!data) {
+        document.getElementById("result").innerHTML = `
+          <p><strong>${personLink(handle)}</strong> — you have to be mentioned on at least 3 days to get a personalized wrapped. get your clout up.</p>
+        `;
+        return;
+      }
+
+      const topDaysPct = topPercentile(data.days_seen_percentile);
+      const topConnectionsPct = topPercentile(data.connections_percentile);
+
+      const topConnections = data.top_connections
+        .map(c => personLink(c.handle))
+        .join(", ");
+
+      let socialLine = "";
+      if (data.social_style === "partygoer") {
+        socialLine = "basically, you only see each other at parties.";
+      } else if (data.social_style === "normie") {
+        socialLine = "that's pretty normal.";
+      } else {
+        socialLine = "you're either in the inner circle, or always catch him on his anti-social days.";
+      }
+
       document.getElementById("result").innerHTML = `
-        <p><strong>@${handle}</strong> — you have to be mentioned on at least 3 days to get a personalized wrapped. get your clout up.</p>
+        <p>
+          <strong>${personLink(handle)}</strong> — you were mentioned on <strong>${data.days_seen}</strong> days, placing you in the top <strong>${topDaysPct}</strong>. you are connected to <strong>${data.connections}</strong> different people, which means you're in the top <strong>${topConnectionsPct}</strong> most connected. you are most connected to ${topConnections}. the person farthest away from you on the social graph is <strong>${personLink(data.most_distant_person.handle)}</strong>. over time, your friendship with quasimatt has been <strong>${data.friendship_trend.label}</strong>. when quasimatt sees you, he sees an average of <strong>${data.avg_group_size}</strong> other people that day. ${socialLine} based on advanced social analysis technology and the wealth of data on quasimatt.com, you are likely <strong>${data.orientation}</strong>.
+        </p>
       `;
-      return;
     }
 
-    const topDays = Math.max(1, Math.round(100 - data.days_seen_percentile));
-    const topConnectionsPct = Math.max(1, Math.round(100 - data.connections_percentile));
-
-    const topConnections = data.top_connections
-      .map(c => `@${c.handle}`)
-      .join(", ");
-
-    let socialLine = "";
-    if (data.social_style === "partygoer") {
-      socialLine = "basically, you only see each other at parties.";
-    } else if (data.social_style === "normie") {
-      socialLine = "that's pretty normal.";
-    } else {
-      socialLine = "you're either in the inner circle, or always catch him on his anti-social days.";
-    }
-
-    document.getElementById("result").innerHTML = `
-      <p>
-        <strong>@${handle}</strong> — you were mentioned on <strong>${data.days_seen}</strong> days, placing you in the top <strong>${topDays}</strong>. you are connected to <strong>${data.connections}</strong> different people, which means you're in the top <strong>${topConnectionsPct}</strong> most connected. you are most connected to ${topConnections}. the person farthest away from you on the social graph is <strong>@${data.most_distant_person.handle}</strong>. over time, your friendship with quasimatt has been <strong>${data.friendship_trend.label}</strong>. when quasimatt sees you, he sees an average of <strong>${data.avg_group_size}</strong> other people that day. ${socialLine} based on advanced social analysis technology and the wealth of data on quasimatt.com, you are likely <strong>${data.orientation}</strong>.
-      </p>
-    `;
-  }
-
-  document.getElementById("handleInput").addEventListener("keydown", e => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      renderWrapped(e.target.value);
-    }
-  });
-</script>
-
+    document.getElementById("handleInput").addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        renderWrapped(e.target.value);
+      }
+    });
+  </script>
 
 </body>
 </html>
