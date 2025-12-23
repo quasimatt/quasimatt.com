@@ -104,8 +104,20 @@
 
       if (!data) {
         document.getElementById("result").innerHTML = `
-          <p><strong>${personLink(handle)}</strong> — you have to be mentioned on at least 3 days to get a personalized wrapped. get your clout up.</p>
-        `;
+  <p>
+    ${personLink(handle)} — you were mentioned on ${data.days_seen} days,
+    placing you in the top ${topDaysPct}. you are connected to
+    ${data.connections} different people, which means you're in the top
+    ${topConnectionsPct} most connected. you are most connected to
+    ${topConnections}. the person farthest away from you on the social graph
+    is ${personLink(data.most_distant_person.handle)}. over time, your
+    friendship with quasimatt has been ${data.friendship_trend.label}. when
+    quasimatt sees you, he sees an average of ${data.avg_group_size} other
+    people that day. ${socialLine} based on advanced social analysis technology
+    and the wealth of data on quasimatt.com, you are likely ${data.orientation}.
+  </p>
+`;
+
         return;
       }
 
