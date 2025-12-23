@@ -69,7 +69,6 @@
         list.appendChild(opt);
       });
 
-      // ✅ FIX: read raw ?handle (not URLSearchParams)
       const handleFromURL = window.location.search.slice(1);
       if (handleFromURL) {
         document.getElementById("handleInput").value = handleFromURL;
@@ -78,19 +77,19 @@
     });
 
     function personLink(handle) {
-  const h = handle.replace(/^@/, "").toLowerCase();
-  const identity = IDENTITIES[h];
-
-  // identity is already an <a>...</a> string
-  if (!identity) return `@${h}`;
-
-  return identity;
-}
-
+      const h = handle.replace(/^@/, "").toLowerCase();
+      return IDENTITIES[h] || `@${h}`;
+    }
 
     function topPercentile(p) {
       const v = Math.max(0.1, 100 - p);
       return v < 1 ? `${v.toFixed(1)}%` : `${Math.round(v)}%`;
+    }
+
+    function formatList(items) {
+      if (items.length === 1) return items[0];
+      if (items.length === 2) return `${items[0]} and ${items[1]}`;
+      return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
     }
 
     function renderWrapped(raw) {
@@ -104,36 +103,20 @@
 
       if (!data) {
         document.getElementById("result").innerHTML = `
-  <p>
-    ${personLink(handle)} — you were mentioned on ${data.days_seen} days,
-    placing you in the top ${topDaysPct}. you are connected to
-    ${data.connections} different people, which means you're in the top
-    ${topConnectionsPct} most connected. you are most connected to
-    ${topConnections}. the person farthest away from you on the social graph
-    is ${personLink(data.most_distant_person.handle)}. over time, your
-    friendship with quasimatt has been ${data.friendship_trend.label}. when
-    quasimatt sees you, he sees an average of ${data.avg_group_size} other
-    people that day. ${socialLine} based on advanced social analysis technology
-    and the wealth of data on quasimatt.com, you are likely ${data.orientation}.
-  </p>
-`;
-
+          <p>
+            ${personLink(handle)} — you have to be mentioned on at least 3 days to
+            get a personalized wrapped. get your clout up.
+          </p>
+        `;
         return;
       }
 
       const topDaysPct = topPercentile(data.days_seen_percentile);
       const topConnectionsPct = topPercentile(data.connections_percentile);
 
-      function formatList(items) {
-  if (items.length === 1) return items[0];
-  if (items.length === 2) return `${items[0]} and ${items[1]}`;
-  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
-}
-
-const topConnections = formatList(
-  data.top_connections.map(c => personLink(c.handle))
-);
-
+      const topConnections = formatList(
+        data.top_connections.map(c => personLink(c.handle))
+      );
 
       let socialLine = "";
       if (data.social_style === "partygoer") {
@@ -146,7 +129,17 @@ const topConnections = formatList(
 
       document.getElementById("result").innerHTML = `
         <p>
-          <strong>${personLink(handle)}</strong> — you were mentioned on <strong>${data.days_seen}</strong> days, placing you in the top <strong>${topDaysPct}</strong>. you are connected to <strong>${data.connections}</strong> different people, which means you're in the top <strong>${topConnectionsPct}</strong> most connected. you are most connected to ${topConnections}. the person farthest away from you on the social graph is <strong>${personLink(data.most_distant_person.handle)}</strong>. over time, your friendship with quasimatt has been <strong>${data.friendship_trend.label}</strong>. when quasimatt sees you, he sees an average of <strong>${data.avg_group_size}</strong> other people that day. ${socialLine} based on advanced social analysis technology and the wealth of data on quasimatt.com, you are likely <strong>${data.orientation}</strong>.
+          ${personLink(handle)} — you were mentioned on ${data.days_seen} days,
+          placing you in the top ${topDaysPct}. you are connected to
+          ${data.connections} different people, which means you're in the top
+          ${topConnectionsPct} most connected. you are most connected to
+          ${topConnections}. the person farthest away from you on the social graph
+          is ${personLink(data.most_distant_person.handle)}. over time, your
+          friendship with quasimatt has been ${data.friendship_trend.label}. when
+          quasimatt sees you, he sees an average of ${data.avg_group_size} other
+          people that day. ${socialLine} based on advanced social analysis
+          technology and the wealth of data on quasimatt.com, you are likely
+          ${data.orientation}.
         </p>
       `;
     }
