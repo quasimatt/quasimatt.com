@@ -53,7 +53,7 @@
 
     Promise.all([
       fetch("/social/wrapped2025/wrapped2025_people.json").then(r => r.json()),
-      fetch("/social/wrapped2025/people_identity.json").then(r => r.json())
+      fetch("/social/wrapped2025/names.json").then(r => r.json())
     ]).then(([peopleData, identityData]) => {
       PEOPLE = peopleData;
       IDENTITIES = identityData;
