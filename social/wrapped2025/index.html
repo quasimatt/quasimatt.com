@@ -78,11 +78,15 @@
     });
 
     function personLink(handle) {
-      const h = normalizeHandle(handle);
-      const identity = IDENTITIES[h];
-      if (!identity) return `@${h}`;
-      return `<a href="${identity.url}">${identity.name}</a>`;
-    }
+  const h = handle.replace(/^@/, "").toLowerCase();
+  const identity = IDENTITIES[h];
+
+  // identity is already an <a>...</a> string
+  if (!identity) return `@${h}`;
+
+  return identity;
+}
+
 
     function topPercentile(p) {
       const v = Math.max(0.1, 100 - p);
