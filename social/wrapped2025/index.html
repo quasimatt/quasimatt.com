@@ -118,6 +118,21 @@
         data.top_connections.map(c => personLink(c.handle))
       );
 
+      // --- classification logic ---
+      const closenessType =
+        data.days_seen_percentile > data.connections_percentile
+          ? "bestie"
+          : "socialite";
+
+      let trajectoryType = "normal";
+      if (data.friendship_trend.label === "deteriorating") {
+        trajectoryType = "washed up";
+      } else if (data.friendship_trend.label === "improving") {
+        trajectoryType = "servacious";
+      }
+
+      const socialCategory = `${trajectoryType} ${closenessType}`;
+
       let socialLine = "";
       if (data.social_style === "partygoer") {
         socialLine = "basically, you only see each other at parties.";
@@ -139,7 +154,7 @@
           <a href="https://x.com/quasimatt">quasimatt</a> sees you, he sees an average of ${data.avg_group_size} other
           people that day. ${socialLine} based on advanced social analysis
           technology and the wealth of data on <a href="https://quasimatt.com">quasimatt.com</a>, you are likely
-          ${data.orientation}.
+          ${data.orientation}. your official <a href="https://quasimatt.com">quasimatt.com</a> social category is "${socialCategory}".
         </p>
       `;
     }
@@ -160,4 +175,3 @@
 
 </body>
 </html>
-
