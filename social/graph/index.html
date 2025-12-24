@@ -5,104 +5,41 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="icon" href="https://pbs.twimg.com/profile_images/1614420813800767490/mf6sQbCT_400x400.jpg" type="image/png">
 <title>quasimatt.com social graph</title>
-
 <style>
   :root { --bg:#000; --fg:#fff; --muted:#aaa; }
-
-  html,body {
-    margin:0;
-    height:100%;
-    background:var(--bg);
-    color:var(--fg);
-    font-family:"Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif;
-  }
-
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font-family:"Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif; }
   a { color:var(--fg); text-decoration:underline; }
 
-  /* ✅ checkbox color fix */
-  input[type="checkbox"] {
-    accent-color: #fff;
-  }
+  /* ✅ CHANGE 1: make checkmarks black/white (not blue) */
+  input[type="checkbox"] { accent-color: #fff; }
 
   .wrap { display:grid; grid-template-rows:auto 1fr; height:100%; }
-
-  header {
-    padding:12px 16px;
-    border-bottom:1px solid #222;
-    display:flex;
-    align-items:center;
-    gap:14px;
-    flex-wrap:wrap;
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-    background: #000;
-  }
-
-  header h1 {
-    font-size:16px;
-    margin:0;
-    letter-spacing:.2px;
-    font-weight:600;
-  }
-
-  header .controls {
-    display:flex;
-    align-items:center;
-    gap:12px;
-    flex-wrap:wrap;
-    color:var(--muted);
-  }
-
+  header { padding:12px 16px; border-bottom:1px solid #222; display:flex; align-items:center; gap:14px; flex-wrap:wrap; position: sticky; top: 0; z-index: 1000; background: #000; }
+  header h1 { font-size:16px; margin:0; letter-spacing:.2px; font-weight:600; }
+  header .controls { display:flex; align-items:center; gap:12px; flex-wrap:wrap; color:var(--muted); }
   label { font-size:12px; }
   .hint { font-size:12px; color:var(--muted); }
-
-  #graph {
-    position:relative;
-    width:100%;
-    height:calc(100vh - 60px);
-    overflow: hidden;
-    touch-action: none;
-  }
-
-  canvas {
-    display:block;
-    width:100%;
-    height:100%;
-    background:#000;
-  }
-
-  .tooltip {
-    position:fixed;
-    pointer-events:none;
-    background:#000;
-    color:#fff;
-    padding:6px 8px;
-    border:1px solid #333;
-    border-radius:8px;
-    font-size:12px;
-    white-space:nowrap;
-    transform:translate(-50%,-140%);
-    display:none;
-    z-index:999999;
-  }
-
+  #graph { position:relative; width:100%; height:calc(100vh - 60px); overflow: hidden; touch-action: none; }
+  canvas { display:block; width:100%; height:100%; background:#000; }
+  .tooltip { position:fixed; pointer-events:none; background:#000; color:#fff; padding:6px 8px; border:1px solid #333; border-radius:8px; font-size:12px; white-space:nowrap; transform:translate(-50%,-140%); display:none; z-index: 999999;}
+  .legend { position:absolute; left:12px; bottom:12px; font-size:12px; color:var(--muted); }
   .error { color:#f66; font-size:12px; margin-left:8px; }
 
+  /* Dual-range slider visuals */
   .mentions-control {
     display:flex;
     flex-direction:column;
     gap:4px;
   }
-
-  .mentions-control span { font-size:12px; }
-
+  .mentions-control span {
+    font-size:12px;
+  }
   .mentions-range {
     position:relative;
     width:180px;
-    height:24px;
+    height:24px; /* taller so we can center everything */
   }
-
   .mentions-bar {
     position:absolute;
     left:0;
@@ -113,30 +50,37 @@
     background:#333;
     border-radius:3px;
   }
-
   .mentions-range input[type="range"] {
     position:absolute;
     left:0;
     top:0;
     width:100%;
-    height:24px;
+    height:24px;       /* match container height */
     margin:0;
     background:transparent;
-    pointer-events:none;
+    pointer-events:none; /* thumbs handle events */
     -webkit-appearance:none;
     appearance:none;
   }
 
+  /* Thumbs (WebKit) */
   .mentions-range input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance:none;
+    appearance:none;
     pointer-events:auto;
     height:14px;
     width:14px;
     border-radius:50%;
     background:#fff;
     border:1px solid #999;
+    margin-top:0;      /* center within 24px track */
+  }
+  .mentions-range input[type="range"]::-webkit-slider-runnable-track {
+    height:24px;
+    background:transparent; /* hide native track */
   }
 
+  /* Thumbs (Firefox) */
   .mentions-range input[type="range"]::-moz-range-thumb {
     pointer-events:auto;
     height:14px;
@@ -145,39 +89,45 @@
     background:#fff;
     border:1px solid #999;
   }
+  .mentions-range input[type="range"]::-moz-range-track {
+    height:24px;
+    background:transparent; /* hide native track */
+  }
 
+  /* Ensure both thumbs sit above bar */
   #minMentions { z-index:2; }
   #maxMentions { z-index:3; }
 </style>
 </head>
-
 <body>
 <div class="wrap">
   <header>
     <h1><a href="https://quasimatt.com/social">quasimatt.com/social</a>/graph</h1>
-
     <div class="controls">
       <div class="mentions-control">
-        <span>mentions: <span id="mentionsLabel">3–10</span></span>
+        <span>mentions: <span id="mentionsLabel">1–10</span></span>
         <div class="mentions-range">
           <div class="mentions-bar"></div>
 
-          <!-- ✅ default min = 3 -->
-          <input id="minMentions" type="range" min="1" max="10" value="3" step="1" />
+          <!-- (optional) you can keep these as 1/10; JS will force 3–max on first compute anyway -->
+          <input id="minMentions" type="range" min="1" max="10" value="1" step="1" />
           <input id="maxMentions" type="range" min="1" max="10" value="10" step="1" />
         </div>
       </div>
-
-      <label><input type="checkbox" id="showEdges" checked> show edges</label>
-      <label><input type="checkbox" id="showLabels" checked> show labels</label>
+      <label>
+        <input type="checkbox" id="showEdges" checked>
+        show edges
+      </label>
+      <label>
+        <input type="checkbox" id="showLabels" checked>
+        show labels
+      </label>
       <label>since: <strong>2025-09-22</strong></label>
-
       <span class="hint">(zoom: scroll, pan: drag.)</span>
       <span id="status" class="hint"></span>
       <span id="error" class="error"></span>
     </div>
   </header>
-
   <div id="graph">
     <canvas id="c"></canvas>
     <div id="tooltip" class="tooltip"></div>
@@ -186,8 +136,10 @@
 
 <script>
 (function () {
+  // ===== DOM =====
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
+  const tooltip = document.getElementById('tooltip');
   const statusEl = document.getElementById('status');
   const errEl = document.getElementById('error');
   const graphEl = document.getElementById('graph');
@@ -196,35 +148,512 @@
   const maxMentionsInput = document.getElementById('maxMentions');
   const mentionsLabel = document.getElementById('mentionsLabel');
 
-  let rawPosts = [];
-  let nodes = [], links = [];
-  let globalMaxMentions = 1;
-  let firstCompute = true;
+  const showEdgesInput = document.getElementById('showEdges');
+  const showLabelsInput = document.getElementById('showLabels');
+
+  let showEdges = true;
+  let showLabels = true;
+
+  showEdgesInput.addEventListener('change', () => {
+    showEdges = showEdgesInput.checked;
+    render();
+  });
+
+  showLabelsInput.addEventListener('change', () => {
+    showLabels = showLabelsInput.checked;
+    if (!showLabels) {
+      clearLabels();
+    }
+    render();
+  });
+
+  // Trap wheel / touchmove so the page doesn't scroll when interacting with the graph
+  ['wheel','touchmove'].forEach(evt => {
+    graphEl.addEventListener(evt, e => e.preventDefault(), { passive: false });
+  });
 
   function setStatus(s){ statusEl.textContent = s; }
+  window.addEventListener('error', e => { errEl.textContent = String(e.error || e.message || e); });
 
+  // ===== Canvas (retina-safe) =====
   function fitCanvas() {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
-    const w = canvas.parentElement.clientWidth;
-    const h = canvas.parentElement.clientHeight;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
+    const { clientWidth:w, clientHeight:h } = canvas.parentElement;
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
     canvas.style.width = w + 'px';
     canvas.style.height = h + 'px';
-    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  function clearBlack() {
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+  }
+  window.addEventListener('resize', () => { fitCanvas(); render(); });
+
+  // ===== Config & helpers =====
+  const SOCIAL_URL = '/social';
+  const CUTOFF_ISO = '2025-09-22';
+  const TW_HOSTS = new Set(['twitter.com','x.com','mobile.twitter.com']);
+  const IG_HOSTS = new Set(['instagram.com','www.instagram.com','m.instagram.com']);
+  const IG_DISALLOWED_FIRST = new Set(['p','reel','reels','stories','explore','tv','accounts']);
+
+  function parseDateFromDataDate(val) {
+    if (!val) return null;
+    const s = String(val).trim();
+    if (/^\d{6}$/.test(s)) { const mm=+s.slice(0,2), dd=+s.slice(2,4), yy=+s.slice(4,6); const d=new Date(2000+yy, mm-1, dd); return isNaN(d)?null:d; }
+    if (/^\d{8}$/.test(s)) { const mm=+s.slice(0,2), dd=+s.slice(2,4), yyyy=+s.slice(4,8); const d=new Date(yyyy, mm-1, dd); return isNaN(d)?null:d; }
+    return null;
+  }
+  function getCutoffDate(){ const [y,m,d]=CUTOFF_ISO.split('-').map(Number); return new Date(y,m-1,d); }
+
+  function extractAccountFromHref(href) {
+    try {
+      const u = new URL(href, location.origin);
+      const host = u.hostname.toLowerCase();
+
+      if (TW_HOSTS.has(host)) {
+        const seg = u.pathname.split('/').filter(Boolean)[0] || '';
+        const handle = seg.replace(/^@/, '').trim();
+        if (!handle) return null;
+        return {
+          id: `x:${handle.toLowerCase()}`,
+          platform: 'x',
+          handle: handle.toLowerCase(),
+          url: `https://twitter.com/${handle}`
+        };
+      }
+
+      if (IG_HOSTS.has(host)) {
+        const parts = u.pathname.split('/').filter(Boolean);
+        const first = (parts[0] || '').toLowerCase();
+        if (!first || IG_DISALLOWED_FIRST.has(first)) return null;
+        if (!/^[a-z0-9._]{1,30}$/i.test(first)) return null;
+        const handle = first.replace(/^@/,'').toLowerCase();
+        return {
+          id: `ig:${handle}`,
+          platform: 'ig',
+          handle,
+          url: `https://instagram.com/${handle}`
+        };
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
   }
 
+  // ===== Data =====
+  let rawPosts = [];
+  let graph = { nodes:[], links:[] };
+  const accountMeta = new Map(); // id -> {platform, handle, url}
+
   async function loadSocial() {
-    const res = await fetch('/social');
+    setStatus('fetching /social…');
+    const res = await fetch(SOCIAL_URL, { credentials:'same-origin' });
+    if (!res.ok) throw new Error('Failed to fetch /social');
     const html = await res.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
-    const ps = [...doc.querySelectorAll('p[data-type="social"][data-date]')];
-    rawPosts = ps.map(p => ({
-      ids: [...p.querySelectorAll('a[href]')].map(a => a.href)
-    }));
+    const cutoff = getCutoffDate();
+    const ps = Array.from(doc.querySelectorAll('p[data-type="social"][data-date]'));
+    setStatus(`found ${ps.length} social nodes`);
+
+    const posts = [];
+    ps.forEach(el => {
+      const date = parseDateFromDataDate(el.getAttribute('data-date'));
+      if (!date || date < cutoff) return;
+
+      const ids = new Set();
+      el.querySelectorAll('a[href]').forEach(a => {
+        const acc = extractAccountFromHref(a.getAttribute('href'));
+        if (acc) {
+          ids.add(acc.id);
+          if (!accountMeta.has(acc.id)) accountMeta.set(acc.id, { platform: acc.platform, handle: acc.handle, url: acc.url });
+        }
+      });
+
+      if (ids.size >= 1) posts.push({ date, ids });
+    });
+
+    posts.sort((a,b)=>a.date-b.date);
+    rawPosts = posts;
+    setStatus(`parsed ${posts.length} posts since 2025-09-22`);
   }
 
+  function buildGraph(minMentions = 1, maxMentions = Infinity) {
+    const rawMentionCounts = new Map();
+    const decayedMentions = new Map(); // pure counts
+
+    const linkKey = (a,b) => a < b ? `${a}|${b}` : `${b}|${a}`;
+    const linksMap = new Map();
+
+    for (const p of rawPosts) {
+      const ids = [...p.ids];
+
+      for (const id of ids) {
+        rawMentionCounts.set(id, (rawMentionCounts.get(id) || 0) + 1);
+        decayedMentions.set(id, (decayedMentions.get(id) || 0) + 1);
+      }
+
+      if (ids.length >= 2) {
+        for (let i = 0; i < ids.length; i++) {
+          for (let j = i + 1; j < ids.length; j++) {
+            const a = ids[i], b = ids[j];
+            const key = linkKey(a, b);
+            const prev = linksMap.get(key) || { source: a, target: b, co: 0 };
+            prev.co += 1;
+            linksMap.set(key, prev);
+          }
+        }
+      }
+    }
+
+    const eligible = new Set(
+      [...rawMentionCounts.entries()]
+        .filter(([, c]) => c >= minMentions && c <= maxMentions)
+        .map(([id]) => id)
+    );
+
+    const links = [];
+    for (const { source, target, co } of linksMap.values()) {
+      if (!eligible.has(source) || !eligible.has(target)) continue;
+      const denom = (decayedMentions.get(source) || 0) + (decayedMentions.get(target) || 0);
+      if (denom <= 0) continue;
+      const value = co / denom;
+      if (value > 0) links.push({ source, target, value });
+    }
+
+    const nodes = [...eligible].map(id => {
+      const meta = accountMeta.get(id) || { platform:'x', handle:id.split(':').pop(), url:'' };
+      return {
+        id,
+        platform: meta.platform,
+        handle: meta.handle,
+        url: meta.url,
+        mentions: rawMentionCounts.get(id) || 0,
+        _decayed: decayedMentions.get(id) || 0
+      };
+    });
+
+    return { nodes, links };
+  }
+
+  // ===== Layout + interactions =====
+  let touchState = {
+    mode: 'none',
+    lastX: 0, lastY: 0,
+    startZoom: 1,
+    startDist: 1,
+    anchorWorld: {x:0,y:0},
+  };
+
+  function touchDistance(t1, t2) {
+    const dx = t2.clientX - t1.clientX;
+    const dy = t2.clientY - t1.clientY;
+    return Math.hypot(dx, dy);
+  }
+
+  function touchMidpoint(t1, t2) {
+    return { x: (t1.clientX + t2.clientX)/2, y: (t1.clientY + t2.clientY)/2 };
+  }
+
+  graphEl.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      touchState.mode = 'pan';
+      touchState.lastX = e.touches[0].clientX;
+      touchState.lastY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      const [t1, t2] = e.touches;
+      touchState.mode = 'pinch';
+      touchState.startDist = touchDistance(t1, t2);
+      touchState.startZoom = zoom;
+
+      const mid = touchMidpoint(t1, t2);
+      const rect = canvas.getBoundingClientRect();
+      const sx = mid.x - rect.left, sy = mid.y - rect.top;
+      touchState.anchorWorld = { x: (sx - offsetX)/zoom, y: (sy - offsetY)/zoom };
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  graphEl.addEventListener('touchmove', (e) => {
+    if (touchState.mode === 'pan' && e.touches.length === 1) {
+      const nx = e.touches[0].clientX, ny = e.touches[0].clientY;
+      offsetX += (nx - touchState.lastX);
+      offsetY += (ny - touchState.lastY);
+      touchState.lastX = nx; touchState.lastY = ny;
+      render();
+    } else if (touchState.mode === 'pinch' && e.touches.length === 2) {
+      const [t1, t2] = e.touches;
+      const dist = touchDistance(t1, t2);
+      const rect = canvas.getBoundingClientRect();
+      const mid = touchMidpoint(t1, t2);
+      const sx = mid.x - rect.left, sy = mid.y - rect.top;
+
+      const newZoom = Math.max(0.25, Math.min(6, touchState.startZoom * (dist / touchState.startDist)));
+      const beforeWorld = touchState.anchorWorld;
+      offsetX = sx - beforeWorld.x * newZoom;
+      offsetY = sy - beforeWorld.y * newZoom;
+
+      zoom = newZoom;
+      render();
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  graphEl.addEventListener('touchend', (e) => {
+    if (e.touches.length === 0) {
+      touchState.mode = 'none';
+    } else if (e.touches.length === 1) {
+      touchState.mode = 'pan';
+      touchState.lastX = e.touches[0].clientX;
+      touchState.lastY = e.touches[0].clientY;
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  let zoom = 1, offsetX = 0, offsetY = 0;
+  function screenToWorld(x,y){ return { x:(x - offsetX)/zoom, y:(y - offsetY)/zoom }; }
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const scale = Math.exp(-e.deltaY * 0.0015);
+    const rect = canvas.getBoundingClientRect();
+    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+    const before = screenToWorld(cx, cy);
+    zoom = Math.max(0.25, Math.min(6, zoom * scale));
+    const after = screenToWorld(cx, cy);
+    offsetX += (after.x - before.x) * zoom;
+    offsetY += (after.y - before.y) * zoom;
+    render();
+  }, { passive:false });
+
+  let panning=false, lastX=0, lastY=0;
+  canvas.addEventListener('mousedown', e=>{ panning=true; lastX=e.clientX; lastY=e.clientY; });
+  window.addEventListener('mouseup', ()=>{ panning=false; });
+  window.addEventListener('mousemove', e=>{
+    if (!panning) return;
+    offsetX += (e.clientX - lastX);
+    offsetY += (e.clientY - lastY);
+    lastX = e.clientX; lastY = e.clientY;
+    render();
+  });
+
+  let nodes=[], links=[];
+  let animId = null;
+  let neighbors = new Map();
+  let globalMaxMentions = 1;
+  let firstCompute = true; // <-- for initial 3..max setup
+
+  function layoutGraph() {
+    const W = canvas.parentElement.clientWidth, H = canvas.parentElement.clientHeight;
+    nodes.forEach((n,i)=>{
+      const cols = Math.ceil(Math.sqrt(nodes.length));
+      const x = (i % cols) / (cols - 1 || 1);
+      const y = Math.floor(i / cols) / (cols - 1 || 1);
+      n.x = 40 + x*(W-80) + (Math.random()-0.5)*24;
+      n.y = 40 + y*(H-80) + (Math.random()-0.5)*24;
+      n.vx = 0; n.vy = 0;
+    });
+
+    const vals = links.map(l=>l.value||0);
+    let vmin=0, vmax=1; if (vals.length){ vmin=Math.min(...vals); vmax=Math.max(...vals); if (vmax===vmin) vmax=vmin+1; }
+    links.forEach(l=>{
+      const t = ((l.value||0) - vmin) / (vmax - vmin);
+      const dMin = 26, dMax = Math.max(140, 0.55*Math.min(W,H));
+      l.len = dMax - t*(dMax - dMin);
+      l.a = nodes.find(n=>n.id===l.source);
+      l.b = nodes.find(n=>n.id===l.target);
+    });
+
+    neighbors = new Map();
+    for (const n of nodes) neighbors.set(n.id, new Set());
+    for (const l of links) {
+      if (l.a && l.b) {
+        neighbors.get(l.a.id).add(l.b.id);
+        neighbors.get(l.b.id).add(l.a.id);
+      }
+    }
+
+    let steps = 0;
+    function step() {
+      steps++;
+      const kSpring = 0.006;
+      const centerK = 0.0005;
+      const friction = 0.76;
+
+      const kRepelConnected = 300;
+      const kRepelNonEdge   = 30000;
+      const kCollide        = 0.25;
+      const collidePad      = 6;
+
+      for (let i=0;i<nodes.length;i++){
+        for (let j=i+1;j<nodes.length;j++){
+          const a=nodes[i], b=nodes[j];
+          let dx=b.x-a.x, dy=b.y-a.y;
+          let d2=dx*dx+dy*dy;
+          if (d2===0){ dx=(Math.random()-0.5)*1e-3; dy=(Math.random()-0.5)*1e-3; d2=dx*dx+dy*dy; }
+          const dist = Math.sqrt(d2);
+
+          const nbA = neighbors.get(a.id);
+          const areNeighbors = nbA ? nbA.has(b.id) : false;
+          const kRepel = areNeighbors ? kRepelConnected : kRepelNonEdge;
+
+          const f = kRepel / d2;
+          const fx = f * (dx / dist), fy = f * (dy / dist);
+          a.vx -= fx; a.vy -= fy; b.vx += fx; b.vy += fy;
+
+          const minDist = (nodeRadius(a) + nodeRadius(b) + collidePad);
+          if (dist < minDist) {
+            const overlap = (minDist - dist);
+            const push = kCollide * overlap;
+            const pfx = push * (dx / dist), pfy = push * (dy / dist);
+            a.vx -= pfx; a.vy -= pfy; b.vx += pfx; b.vy += pfy;
+          }
+        }
+      }
+
+      for (const l of links){
+        const a=l.a, b=l.b; if (!a||!b) continue;
+        let dx=b.x-a.x, dy=b.y-a.y;
+        let dist = Math.sqrt(dx*dx+dy*dy) || 1e-6;
+        const diff = dist - l.len;
+        const f = kSpring * diff;
+        const fx = f * dx/dist, fy = f * dy/dist;
+        a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+      }
+
+      const cx = W/2, cy = H/2;
+      let kinetic = 0;
+      for (const n of nodes){
+        n.vx += (cx - n.x)*centerK;
+        n.vy += (cy - n.y)*centerK;
+        n.vx *= friction; n.vy *= friction;
+        n.x += n.vx; n.y += n.vy;
+        kinetic += n.vx*n.vx + n.vy*n.vy;
+      }
+
+      render();
+
+      if (steps < 2000 && kinetic > 0.01) {
+        animId = requestAnimationFrame(step);
+      } else {
+        setStatus(`layout settled in ${steps} steps`);
+        animId = null;
+      }
+    }
+    if (animId) cancelAnimationFrame(animId);
+    animId = requestAnimationFrame(step);
+  }
+
+  function nodeRadius(n){
+    const minR = 4;
+    const maxR = 18;
+    const m = n.mentions || 0;
+    const M = globalMaxMentions || 1;
+    const t = M > 0 ? (m / M) : 0;
+    return minR + (maxR - minR) * t;
+  }
+
+  const labels = new Map();
+
+  function render() {
+    clearBlack();
+
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(zoom, zoom);
+
+    if (showEdges) {
+      ctx.globalAlpha = 0.9;
+      ctx.strokeStyle = '#ffffff';
+      for (const l of links){
+        const a=l.a, b=l.b; if (!a||!b) continue;
+        ctx.beginPath(); ctx.lineWidth = 0.4;
+        ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+    }
+
+    for (const n of nodes){
+      ctx.beginPath();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.2 / Math.max(1, zoom*0.9);
+      ctx.arc(n.x, n.y, nodeRadius(n), 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+
+    if (showLabels) {
+      for (const n of nodes){
+        let el = labels.get(n.id);
+        if (!el) {
+          el = document.createElement('a');
+          el.href = n.url || (n.platform === 'ig'
+            ? `https://instagram.com/${n.handle}`
+            : `https://twitter.com/${n.handle}`);
+          el.target = '_blank'; el.rel = 'noopener';
+          el.style.position = 'absolute';
+          el.style.color = '#fff';
+          el.style.textDecoration = 'none';
+          el.style.fontSize = '12px';
+          el.style.padding = '2px 3px';
+          el.style.borderRadius = '6px';
+          el.textContent = `@${n.handle}`;
+          canvas.parentElement.appendChild(el);
+          labels.set(n.id, el);
+        } else {
+          el.href = n.url;
+          el.textContent = `@${n.handle}`;
+          el.style.display = 'block';
+        }
+        const r = nodeRadius(n);
+        const sx = offsetX + n.x*zoom;
+        const sy = offsetY + n.y*zoom;
+        const rect = el.getBoundingClientRect();
+        el.style.left = (sx - rect.width/2) + 'px';
+        el.style.top  = (sy - r*zoom - rect.height - 4) + 'px';
+      }
+    } else {
+      clearLabels();
+    }
+  }
+
+  function clearLabels(){
+    labels.forEach(el => {
+      if (el.parentElement) el.parentElement.removeChild(el);
+    });
+    labels.clear();
+  }
+
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left - offsetX) / zoom;
+    const y = (e.clientY - rect.top  - offsetY) / zoom;
+    let hit = null;
+    for (let i=nodes.length-1;i>=0;i--){
+      const n = nodes[i], r=nodeRadius(n);
+      const dx=x-n.x, dy=y-n.y;
+      if (dx*dx+dy*dy <= r*r) { hit = n; break; }
+    }
+    if (hit) {
+      const connCount = (neighbors.get(hit.id) && neighbors.get(hit.id).size) || 0;
+      tooltip.style.display='block';
+      tooltip.textContent = `@${hit.handle} — mentions: ${hit.mentions} — connections: ${connCount}`;
+      tooltip.style.left = e.clientX + 'px';
+      tooltip.style.top  = e.clientY + 'px';
+    } else {
+      tooltip.style.display='none';
+    }
+  });
+
+  // ===== Recompute =====
   function recomputeAndRender() {
     const mentionTotals = new Map();
     for (const p of rawPosts) {
@@ -232,41 +661,66 @@
         mentionTotals.set(id, (mentionTotals.get(id) || 0) + 1);
       }
     }
-
     const vals = [...mentionTotals.values()];
-    globalMaxMentions = vals.length ? Math.max(...vals) : 1;
+    const absoluteMaxMentions = vals.length ? Math.max(...vals) : 1;
+    globalMaxMentions = absoluteMaxMentions;
 
-    minMentionsInput.max = globalMaxMentions;
-    maxMentionsInput.max = globalMaxMentions;
+    minMentionsInput.min = '1';
+    maxMentionsInput.min = '1';
+    minMentionsInput.max = String(absoluteMaxMentions);
+    maxMentionsInput.max = String(absoluteMaxMentions);
 
     let minVal = parseInt(minMentionsInput.value, 10);
     let maxVal = parseInt(maxMentionsInput.value, 10);
 
-    /* ✅ default to 3–max on first load */
+    if (!Number.isFinite(minVal)) minVal = 1;
+    if (!Number.isFinite(maxVal)) maxVal = absoluteMaxMentions;
+
+    /* ✅ CHANGE 2: first load defaults to 3–max (but slider still works after) */
     if (firstCompute) {
-      minVal = Math.min(3, globalMaxMentions);
-      maxVal = globalMaxMentions;
+      minVal = Math.min(3, absoluteMaxMentions);
+      maxVal = absoluteMaxMentions;
       firstCompute = false;
     }
 
-    minVal = Math.max(1, Math.min(minVal, globalMaxMentions));
-    maxVal = Math.max(1, Math.min(maxVal, globalMaxMentions));
-    if (minVal > maxVal) [minVal, maxVal] = [maxVal, minVal];
+    minVal = Math.max(1, Math.min(minVal, absoluteMaxMentions));
+    maxVal = Math.max(1, Math.min(maxVal, absoluteMaxMentions));
 
-    minMentionsInput.value = minVal;
-    maxMentionsInput.value = maxVal;
+    if (minVal > maxVal) {
+      [minVal, maxVal] = [maxVal, minVal];
+    }
+
+    minMentionsInput.value = String(minVal);
+    maxMentionsInput.value = String(maxVal);
     mentionsLabel.textContent = `${minVal}–${maxVal}`;
 
-    setStatus(`mentions range: ${minVal}–${maxVal}`);
+    graph = buildGraph(minVal, maxVal);
+    nodes = graph.nodes;
+    links = graph.links.map(l => ({...l}));
+    links.forEach(l => { l.a = nodes.find(n=>n.id===l.source); l.b = nodes.find(n=>n.id===l.target); });
+    clearLabels();
+    fitCanvas();
+    clearBlack();
+    if (!nodes.length) {
+      setStatus(`no eligible nodes (mentions range: ${minVal}–${maxVal}, overall max: ${absoluteMaxMentions})`);
+      render();
+      return;
+    }
+    setStatus(`nodes: ${nodes.length} | links: ${links.length} | mentions range: ${minVal}–${maxVal} (max: ${absoluteMaxMentions})`);
+    layoutGraph();
   }
 
+  // ===== Init =====
   (async function init(){
     try {
-      fitCanvas();
+      setStatus('boot…');
+      fitCanvas(); clearBlack();
+      mentionsLabel.textContent = `${minMentionsInput.value}–${maxMentionsInput.value}`;
       await loadSocial();
       recomputeAndRender();
-    } catch (e) {
-      errEl.textContent = e.message;
+    } catch (err) {
+      console.error(err);
+      errEl.textContent = String(err.message || err);
     }
   })();
 
