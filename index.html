@@ -1,53 +1,43 @@
 <html>
 <head>
-  <base target="_blank">
-  <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="https://pbs.twimg.com/profile_images/1614420813800767490/mf6sQbCT_400x400.jpg" type="image/png">
-  <link rel="manifest" href="/manifest.json">
+    <base target="_blank">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="https://pbs.twimg.com/profile_images/1614420813800767490/mf6sQbCT_400x400.jpg" type="image/png">
+    <link rel="manifest" href="/manifest.json">
 </head>
+  <body>
+    <p>
+  <span><a href="https://quasimatt.com" target="_self">quasimatt</a></span><span id="identity"></span>
+</p>
 
-<body>
-  <p>
-    <span><a href="https://quasimatt.com" target="_self">quasimatt</a></span><span id="identity"></span>
-  </p>
+<script>
+  const endings = [
+    " is an artist.",
+    " is a jester.",
+    " is a grifter.",
+    " is a liar.",
+    " is an intellectual.",
+    " is a character.",
+    " is a theorist.",
+    " is an oracle.",
+    " is esoteric.",
+    " queens out.",
+    " is fake.",
+    " is real.",
+    " is an insightful genius."
+  ];
 
-  <script>
-    const endings = [
-      " is an artist.",
-      " is a jester.",
-      " is a grifter.",
-      " is a liar.",
-      " is an intellectual.",
-      " is a character.",
-      " is a theorist.",
-      " is an oracle.",
-      " is esoteric.",
-      " queens out.",
-      " is fake.",
-      " is real.",
-      " is an insightful genius."
-    ];
-
-    const pick = endings[Math.floor(Math.random() * endings.length)];
-    document.getElementById("identity").textContent = pick;
-  </script>
-
-  <p id="projects">
-    <span>i log my social life on <a href="social" target="_self">/social</a>. i generate a social graph on <a href="social/graph" target="_self">/social/graph</a>. </span>
-    <span>i do research at <a href="https://quasi.institute">quasi.institute</a>. </span>
-    <span>i make manga with my friends on <a href="https://chica.zone">chica.zone</a>. </span>
-  </p>
-
-  <script>
-    const container = document.getElementById("projects");
-    const items = Array.from(container.children);
-
-    for (let i = items.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [items[i], items[j]] = [items[j], items[i]];
-    }
-
-    items.forEach(el => container.appendChild(el));
-  </script>
-</body>
+  const pick = endings[Math.floor(Math.random() * endings.length)];
+  document.getElementById("identity").textContent = pick;
+</script>
+      <p>projects:
+      <br>
+      <a href="social" target="_self">/social</a> (<a href="https://x.com/quasimattdotcom">x</a>)
+      <br>
+      • <a href="social/graph">/graph</a> 
+      <br>
+      <a href="https://quasi.institute">quasi.institute</a>
+      <br>
+      <a href="https://chica.zone">chica.zone</a> (<a href="https://instagram.com/chicamob">insta</a>)</p>
+  </body>
 </html>
